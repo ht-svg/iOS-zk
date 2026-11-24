@@ -21,13 +21,14 @@
     #notice{color:#3f4b60;font-size:13px}
     #last-refresh{color:#8a94a6;font-size:12px;white-space:nowrap}
     .workspace{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:16px}
-    .workspace.has-devices{grid-template-columns:minmax(0,1fr) 220px}
+    .workspace.has-devices{grid-template-columns:minmax(0,1fr) var(--preview-size,220px)}
     .grid{min-width:0}
     .card{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:auto auto;grid-template-areas:"head head" "screen side";gap:14px 18px;width:100%;min-height:0;background:#fff;border:1px solid #e3e8f0;border-radius:16px;padding:18px;box-shadow:0 8px 26px #1e293b0a}
     .device-list{width:100%;min-width:0;background:#fff;border:1px solid #e3e8f0;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 26px #1e293b0a}
     .device-list[hidden]{display:none}
     .device-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
     .device-list-count{font-size:11px;color:#69758a;background:#f1f4f9;border-radius:20px;padding:4px 8px;white-space:nowrap}
+    .preview-size-control{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;font-size:11px;color:#69758a}
     .device-list-summary{font-size:11px;color:#8993a5;line-height:1.5}
     .device-items{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 300px);overflow:auto;padding-right:2px}
     .device-item{display:flex;flex-direction:column;min-width:0;border:1px solid #e3e8f0;background:#fff;border-radius:12px;cursor:pointer;overflow:hidden;transition:border-color .15s,box-shadow .15s}
@@ -62,6 +63,8 @@
     .settings .appium-url,.settings .save{grid-column:1/-1}
     input,textarea{width:100%;border:1px solid #dce3ed;border-radius:8px;background:#fff;color:#172033;padding:9px 10px;font:inherit;font-size:12px;outline:none;transition:border-color .15s,box-shadow .15s}
     input:focus,textarea:focus{border-color:#6c9bf5;box-shadow:0 0 0 3px #3478f61a}
+    input[type=range]{width:100%;height:18px;margin:0;padding:0;border:0;border-radius:0;background:transparent;accent-color:#3478f6;box-shadow:none;cursor:pointer}
+    input[type=range]:focus{box-shadow:none}
     button{border:0;border-radius:8px;padding:9px 11px;background:#3478f6;color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s}
     button:hover{background:#225fdb}
     button:active{transform:translateY(1px)}
@@ -84,8 +87,8 @@
     .message{color:#637087;font-size:11px;align-self:center;min-height:15px}
     .empty{background:#fff;border:1px dashed #cbd5e1;border-radius:12px;padding:32px;color:#778196;text-align:center}
     .error{color:#bf3e3e!important}
-    @media(max-width:1100px){.workspace.has-devices{grid-template-columns:1fr}.device-items{flex-direction:row;max-height:none;overflow-x:auto;padding-bottom:3px}.device-item{flex:0 0 145px}.device-preview{aspect-ratio:9/11}.device-list-summary{display:none}.card{grid-template-columns:minmax(0,1fr) 290px;grid-template-rows:auto auto}}
-    @media(max-width:760px){header{position:static;align-items:flex-start;padding:12px 16px}.brand-mark{width:34px;height:34px}.header-actions{gap:6px}.header-actions button{padding:8px;font-size:11px}main{padding:18px 12px 28px}.toolbar{margin-bottom:12px}.workspace,.workspace.has-devices{gap:12px}.card{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;grid-template-areas:"head" "screen" "side";padding:12px;gap:12px}.screen-wrap{width:min(100%,calc((100vh - 320px)*9/16))}.device-list{padding:11px}.device-items{gap:8px}.device-item{flex-basis:125px}.device-preview{aspect-ratio:9/10}}
+    @media(max-width:1100px){.workspace.has-devices{grid-template-columns:1fr}.device-items{flex-direction:row;max-height:none;overflow-x:auto;padding-bottom:3px}.device-item{flex:0 0 var(--preview-size,145px)}.device-preview{aspect-ratio:9/11}.device-list-summary{display:none}.card{grid-template-columns:minmax(0,1fr) 290px;grid-template-rows:auto auto}}
+    @media(max-width:760px){header{position:static;align-items:flex-start;padding:12px 16px}.brand-mark{width:34px;height:34px}.header-actions{gap:6px}.header-actions button{padding:8px;font-size:11px}main{padding:18px 12px 28px}.toolbar{margin-bottom:12px}.workspace,.workspace.has-devices{gap:12px}.card{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;grid-template-areas:"head" "screen" "side";padding:12px;gap:12px}.screen-wrap{width:min(100%,calc((100vh - 320px)*9/16))}.device-list{padding:11px}.device-items{gap:8px}.device-item{flex-basis:min(var(--preview-size,125px),45vw)}.device-preview{aspect-ratio:9/10}}
     @media(max-width:480px){header{flex-wrap:wrap;gap:10px}.brand{gap:8px}.brand-mark{width:32px;height:32px}.header-actions{width:100%}.header-actions button{flex:1}.toolbar{align-items:flex-start}.card-head{align-items:flex-start;flex-direction:column}.meta{font-size:10px}.badge{align-self:flex-start}.system-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.settings{grid-template-columns:1fr}.settings .appium-url,.settings .save{grid-column:auto}.clipboard{grid-template-columns:minmax(0,1fr) auto auto}.composer{grid-template-columns:minmax(0,1fr) auto}}
   </style>
 </head>
@@ -128,6 +131,7 @@
     const PREVIEW_REFRESH_MS = 1500;
     const PREVIEW_TIMEOUT_MS = 8000;
     let previewLiveEnabled = true;
+    let previewSize = 220;
     const streamRetryTimers = new Map();
     const streamAttempts = new Map();
     const streamStoppedByUser = new Set();
@@ -514,6 +518,11 @@
       deviceList.parentElement.classList.toggle("has-devices", devices.length > 1);
       deviceList.innerHTML = `
         <div class="device-list-head"><strong>设备列表</strong><span class="device-list-count">${connectedCount}/${devices.length} 已连接</span></div>
+        <div class="preview-size-control">
+          <label for="preview-size">小窗大小</label>
+          <input id="preview-size" type="range" min="140" max="320" step="10" value="${previewSize}" aria-label="调整小窗大小">
+          <span id="preview-size-value">${previewSize}px</span>
+        </div>
         <div class="device-list-summary">点击小窗切换大屏主控；开启“控制所有手机”可同步操作。</div>
         <div class="device-items">${otherDevices.length ? otherDevices.map(d => `
           <div class="device-item ${d.udid === selectedUDID ? "current" : ""}" data-udid="${esc(d.udid)}" role="button" tabindex="0" aria-label="切换到 ${esc(d.name || "iPhone")}">
@@ -648,6 +657,19 @@
         if (status.textContent !== "主控") status.textContent = "已暂停";
         status.title = "小窗实时预览已暂停";
       });
+    }
+
+    function applyPreviewSize(value, persist = false) {
+      const size = Math.min(320, Math.max(140, Number(value) || 220));
+      previewSize = size;
+      document.documentElement.style.setProperty("--preview-size", `${size}px`);
+      const slider = document.getElementById("preview-size");
+      if (slider) slider.value = String(size);
+      const label = document.getElementById("preview-size-value");
+      if (label) label.textContent = `${size}px`;
+      if (persist) {
+        try { localStorage.setItem("previewSize", String(size)); } catch (_) { /* storage may be unavailable */ }
+      }
     }
 
     function bindCard(device) {
@@ -880,6 +902,14 @@
       previewLiveEnabled = !previewLiveEnabled;
       updatePreviewToggle();
     };
+    deviceList.addEventListener("input", event => {
+      if (event.target?.id === "preview-size") applyPreviewSize(event.target.value, true);
+    });
+    try {
+      const savedSize = localStorage.getItem("previewSize");
+      if (savedSize) applyPreviewSize(savedSize);
+    } catch (_) { /* storage may be unavailable */ }
+    applyPreviewSize(previewSize);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden && previewLiveEnabled) refreshDevicePreviews();
     });
