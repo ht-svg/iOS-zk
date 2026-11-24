@@ -260,6 +260,27 @@ func (s *server) handleAction(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+func (s *server) handleApp(w http.ResponseWriter, r *http.Request) {
+	var input appInput
+	if err := decodeJSON(r.Body, &input); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := validateAppInput(input); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	udid, sessionID, ok := s.sessionOrError(w, r)
+	if !ok {
+		return
+	}
+	if err := s.appDevice(r.Context(), udid, sessionID, input); err != nil {
+		s.writeAPIError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func (s *server) handleGetClipboard(w http.ResponseWriter, r *http.Request) {
 	udid, sessionID, ok := s.sessionOrError(w, r)
 	if !ok {
@@ -322,46 +343,46 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if len(request.UDIDs) == 0 {
-		writeError(w, http.StatusBadRequest, errors.New("批量操作至少需要一台设备"))
-		return
-	}
-	if len(request.UDIDs) > runtimeCfg.MaxBatchDevices {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("批量操作最多支持 %d 台设备", runtimeCfg.MaxBatchDevices))
-		return
-	}
-	seen := make(map[string]bool, len(request.UDIDs))
-	for _, udid := range request.UDIDs {
-		if err := validateUDID(udid); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		if seen[udid] {
-			writeError(w, http.StatusBadRequest, fmt.Errorf("设备 %s 在批量请求中重复出现", udid))
-			return
-		}
-		seen[udid] = true
-	}
-	payload, err := parseBatchPayload(request.Operation, request.Body)
+
+	targets, err := normalizeBatchTargets(request)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateBatchTargets(targets, request.Body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !supportedBatchOperation(request.Operation) {
+		writeError(w, http.StatusBadRequest, errors.New("不支持的批量操作"))
+		return
+	}
 
-	results := make([]batchResult, len(request.UDIDs))
+	results := make([]batchResult, len(targets))
 	sem := make(chan struct{}, runtimeCfg.BatchConcurrency)
 	requestCtx, cancelRequest := context.WithTimeout(r.Context(), runtimeCfg.BatchTotalTimeout)
 	defer cancelRequest()
 	var wait sync.WaitGroup
-	for index, udid := range request.UDIDs {
+	for index, target := range targets {
 		wait.Add(1)
-		go func(index int, udid string) {
+		go func(index int, target normalizedBatchTarget) {
 			defer wait.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			result := batchResult{UDID: udid, Name: s.deviceName(udid)}
-			sessionID, err := s.sessionID(udid)
+			result := batchResult{UDID: target.UDID, Name: s.deviceName(target.UDID)}
+
+			// Each device parses and validates its own body. A malformed payload
+			// for one device must never abort the others.
+			payload, payloadErr := parseBatchPayload(request.Operation, target.Body)
+			if payloadErr != nil {
+				result.Error = payloadErr.Error()
+				result.Code = CodeBadRequest
+				results[index] = result
+				return
+			}
+
+			sessionID, err := s.sessionID(target.UDID)
 			if err != nil {
 				result.Error = err.Error()
 				result.Code = errorCode(err)
@@ -370,7 +391,7 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 			}
 			ctx, cancel := context.WithTimeout(requestCtx, runtimeCfg.BatchDeviceTimeout)
 			defer cancel()
-			if err := s.performBatchOperation(ctx, udid, sessionID, request.Operation, payload); err != nil {
+			if err := s.performBatchOperation(ctx, target.UDID, sessionID, request.Operation, payload); err != nil {
 				result.Error = err.Error()
 				result.Code = errorCode(err)
 				results[index] = result
@@ -378,7 +399,7 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 			}
 			result.OK = true
 			results[index] = result
-		}(index, udid)
+		}(index, target)
 	}
 	wait.Wait()
 

@@ -48,10 +48,27 @@ type clipboardInput struct {
 	Text string `json:"text"`
 }
 
+type appInput struct {
+	Action   string `json:"action"`
+	BundleID string `json:"bundleId"`
+}
+
+type batchTarget struct {
+	UDID string          `json:"udid"`
+	Body json.RawMessage `json:"body,omitempty"`
+}
+
 type batchRequest struct {
-	UDIDs     []string        `json:"udids"`
+	UDIDs     []string        `json:"udids,omitempty"`
 	Operation string          `json:"operation"`
-	Body      json.RawMessage `json:"body"`
+	Body      json.RawMessage `json:"body,omitempty"`
+	Targets   []batchTarget   `json:"targets,omitempty"`
+}
+
+type normalizedBatchTarget struct {
+	UDID    string
+	Body    json.RawMessage
+	HasBody bool
 }
 
 type batchResult struct {
@@ -366,6 +383,122 @@ func (s *server) setClipboardDevice(ctx context.Context, udid, sessionID string,
 	return err
 }
 
+// normalizeBatchTargets converts both the legacy "udids + shared body" form and
+// the per-device "targets" form into one list. A target without its own body
+// inherits the request-level body, so a template can be shared with overrides.
+func normalizeBatchTargets(request batchRequest) ([]normalizedBatchTarget, error) {
+	if len(request.Targets) == 0 {
+		targets := make([]normalizedBatchTarget, 0, len(request.UDIDs))
+		for _, udid := range request.UDIDs {
+			targets = append(targets, normalizedBatchTarget{
+				UDID:    udid,
+				Body:    request.Body,
+				HasBody: len(bytes.TrimSpace(request.Body)) > 0,
+			})
+		}
+		return targets, nil
+	}
+
+	targets := make([]normalizedBatchTarget, 0, len(request.Targets))
+	for _, target := range request.Targets {
+		hasBody := len(bytes.TrimSpace(target.Body)) > 0
+		body := target.Body
+		if !hasBody {
+			body = request.Body
+		}
+		targets = append(targets, normalizedBatchTarget{
+			UDID:    target.UDID,
+			Body:    body,
+			HasBody: hasBody || len(bytes.TrimSpace(request.Body)) > 0,
+		})
+	}
+	return targets, nil
+}
+
+func validateBatchTargets(targets []normalizedBatchTarget, sharedBody json.RawMessage) error {
+	if len(targets) == 0 {
+		return errors.New("批量操作至少需要一台设备")
+	}
+	if len(targets) > runtimeCfg.MaxBatchDevices {
+		return fmt.Errorf("批量操作最多支持 %d 台设备", runtimeCfg.MaxBatchDevices)
+	}
+	seen := make(map[string]bool, len(targets))
+	for _, target := range targets {
+		if err := validateUDID(target.UDID); err != nil {
+			return err
+		}
+		if seen[target.UDID] {
+			return fmt.Errorf("设备 %s 在批量请求中重复出现", target.UDID)
+		}
+		seen[target.UDID] = true
+		if !target.HasBody && len(bytes.TrimSpace(sharedBody)) == 0 {
+			return fmt.Errorf("设备 %s 缺少操作内容", target.UDID)
+		}
+	}
+	return nil
+}
+
+func validateAppInput(input appInput) error {
+	switch input.Action {
+	case "open", "uninstall":
+	default:
+		return errors.New("应用操作仅支持 open 或 uninstall")
+	}
+	bundleID := strings.TrimSpace(input.BundleID)
+	if bundleID == "" {
+		return errors.New("缺少应用 Bundle ID")
+	}
+	if len(bundleID) > 200 {
+		return errors.New("Bundle ID 不能超过 200 字节")
+	}
+	for _, r := range bundleID {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '-' || r == '_' {
+			continue
+		}
+		return errors.New("Bundle ID 只能包含字母、数字、点和连字符")
+	}
+	return nil
+}
+
+func (s *server) appDevice(ctx context.Context, udid, sessionID string, input appInput) error {
+	if err := validateAppInput(input); err != nil {
+		return err
+	}
+	bundleID := strings.TrimSpace(input.BundleID)
+	var endpoint string
+	var body any
+	if s.isWDASession(udid) {
+		if input.Action == "uninstall" {
+			return unsupportedError("当前 WDA 直连模式不支持卸载应用，请使用 Appium 会话")
+		}
+		endpoint = "/wda/apps/launch"
+		body = map[string]string{"bundleId": bundleID}
+	} else {
+		// Appium XCUITest exposes app management through mobile: commands,
+		// consistent with the other session operations in this project.
+		endpoint = sessionPath(sessionID) + "/execute/sync"
+		script := "mobile: launchApp"
+		if input.Action == "uninstall" {
+			script = "mobile: removeApp"
+		}
+		body = map[string]any{
+			"script": script,
+			"args":   []any{map[string]string{"bundleId": bundleID}},
+		}
+	}
+	_, err := s.sessionRequest(ctx, udid, sessionID, http.MethodPost, endpoint, body)
+	return err
+}
+
+func supportedBatchOperation(operation string) bool {
+	switch operation {
+	case "tap", "swipe", "type", "actions", "action", "clipboard", "app":
+		return true
+	default:
+		return false
+	}
+}
+
 func parseBatchPayload(operation string, raw json.RawMessage) (any, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return nil, errors.New("批量操作缺少 body")
@@ -429,6 +562,15 @@ func parseBatchPayload(operation string, raw json.RawMessage) (any, error) {
 			return nil, err
 		}
 		return input, nil
+	case "app":
+		var input appInput
+		if err := decode(&input); err != nil {
+			return nil, err
+		}
+		if err := validateAppInput(input); err != nil {
+			return nil, err
+		}
+		return input, nil
 	default:
 		return nil, errors.New("不支持的批量操作")
 	}
@@ -466,6 +608,12 @@ func (s *server) performBatchOperation(ctx context.Context, udid, sessionID, ope
 			return errors.New("批量参数类型错误")
 		}
 		return s.setClipboardDevice(ctx, udid, sessionID, input)
+	case "app":
+		input, ok := payload.(appInput)
+		if !ok {
+			return errors.New("批量参数类型错误")
+		}
+		return s.appDevice(ctx, udid, sessionID, input)
 	default:
 		return errors.New("不支持的批量操作")
 	}

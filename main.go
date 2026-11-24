@@ -73,6 +73,7 @@ func main() {
 	mux.HandleFunc("POST /api/devices/{udid}/swipe", s.handleSwipe)
 	mux.HandleFunc("POST /api/devices/{udid}/type", s.handleType)
 	mux.HandleFunc("POST /api/devices/{udid}/actions", s.handleAction)
+	mux.HandleFunc("POST /api/devices/{udid}/app", s.handleApp)
 	mux.HandleFunc("GET /api/devices/{udid}/clipboard", s.handleGetClipboard)
 	mux.HandleFunc("PUT /api/devices/{udid}/clipboard", s.handleSetClipboard)
 	mux.HandleFunc("GET /api/devices/{udid}/messages", s.handleMessages)

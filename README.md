@@ -51,7 +51,7 @@ go build -o 海涛中控v0.1.exe .
 }
 ```
 
-`operation` 支持 `tap`、`swipe`、`type`、`actions`、`clipboard`；其中 `actions` 的 `action` 可为 `lock`、`unlock`、`home`、`volumeUp`、`volumeDown`、`reboot`、`orientation`、`enter`。响应固定为 HTTP 200（参数错误除外），并返回每台设备的结果：
+`operation` 支持 `tap`、`swipe`、`type`、`actions`、`clipboard`、`app`；其中 `actions` 的 `action` 可为 `lock`、`unlock`、`home`、`volumeUp`、`volumeDown`、`reboot`、`orientation`、`enter`，`app` 的 `action` 可为 `open`、`uninstall`（`bundleId` 指定应用）。响应固定为 HTTP 200（参数错误除外），并返回每台设备的结果：
 
 ```json
 {
@@ -65,6 +65,37 @@ go build -o 海涛中控v0.1.exe .
   ]
 }
 ```
+
+### 差异化群发（每台不同内容）
+
+`POST /api/batch` 除上面的 `udids + body`（所有设备共用一份内容）外，还支持 `targets` 逐台指定内容：
+
+```json
+{
+  "operation": "type",
+  "body": {"text": "默认内容，未单独指定的设备使用此内容"},
+  "targets": [
+    {"udid": "00008030-001A11261489802E", "body": {"text": "发给 A 的内容"}},
+    {"udid": "00008030-001B22372590913F", "body": {"text": "发给 B 的内容"}},
+    {"udid": "00008030-001C33373590914G"}
+  ]
+}
+```
+
+- 每台设备可带自己的 `body`；未带 `body` 的设备自动回退到顶层 `body` 作为模板。
+- 单台设备的内容校验失败（如文本过长）只标记该台为 `bad_request`，不影响其他设备执行，结果顺序与 `targets` 一致。
+- 页面顶栏「差异化群发」面板提供：全部/分组/手动三种目标选择、默认内容模板、`{{name}}`/`{{index}}`/`{{udid}}` 变量替换、按行批量填充、逐台编辑与逐台结果展示。
+
+### 应用打开与卸载
+
+- 单设备：`POST /api/devices/{udid}/app`，body 为 `{"action":"open"|"uninstall","bundleId":"com.example.App"}`。
+- 批量：通过 `/api/batch` 的 `operation:"app"` 同样支持。
+- 页面「应用」区内置常用 App 名单，也可直接输入 Bundle ID；卸载在 WDA 直连模式下返回 `unsupported`，需用 Appium 会话。
+
+### 设备分组
+
+- 在「设备信息」里为设备填写分组名并保存，配置持久化到 `%LOCALAPPDATA%\GoPhoneManager\config.json`。
+- 设备列表侧栏按分组归类显示；差异化群发面板支持「按分组」选择目标设备。
 
 所有失败响应（包括普通 HTTP 接口和批量结果）都带同一个 `code` 字段：
 

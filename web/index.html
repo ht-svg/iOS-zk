@@ -16,6 +16,8 @@
     .header-actions{display:flex;align-items:center;gap:9px}
     #all-devices-toggle.active,#preview-live-toggle.active{background:#13845b}
     #all-devices-toggle.active:hover,#preview-live-toggle.active:hover{background:#0b6d49}
+    #mass-send-toggle.active{background:#7a4fd6}
+    #mass-send-toggle.active:hover{background:#6840bd}
     main{max-width:1680px;margin:0 auto;padding:24px clamp(16px,3vw,40px) 40px}
     .toolbar{display:flex;align-items:center;justify-content:space-between;margin:0 0 16px;gap:12px;min-height:36px}
     #notice{color:#3f4b60;font-size:13px}
@@ -31,6 +33,8 @@
     .preview-size-control{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;font-size:11px;color:#69758a}
     .device-list-summary{font-size:11px;color:#8993a5;line-height:1.5}
     .device-items{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 300px);overflow:auto;padding-right:2px}
+    .device-group-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:650;color:#5c6880;padding:6px 4px 4px;border-bottom:1px dashed #dfe5ee;margin-top:2px}
+    .device-group-head .gap{font-weight:400;color:#93a0b3}
     .device-item{display:flex;flex-direction:column;min-width:0;border:1px solid #e3e8f0;background:#fff;border-radius:12px;cursor:pointer;overflow:hidden;transition:border-color .15s,box-shadow .15s}
     .device-item:hover{border-color:#9bb8f4;box-shadow:0 4px 12px #1e293b10}
     .device-item.current{border:2px solid #3478f6}
@@ -82,10 +86,62 @@
     .composer .type-text{grid-column:1;min-height:38px}
     .composer .type{grid-column:2;grid-row:2;min-height:38px}
     .composer .type-enter{grid-column:3;grid-row:2;min-height:38px}
+    .app-tools{display:flex;flex-direction:column;gap:8px}
+    .app-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .clipboard{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px}
     textarea{min-height:72px;resize:vertical}
     .message{color:#637087;font-size:11px;align-self:center;min-height:15px}
     .empty{background:#fff;border:1px dashed #cbd5e1;border-radius:12px;padding:32px;color:#778196;text-align:center}
+    .modal-backdrop{position:fixed;inset:0;z-index:20;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto}
+    .modal-backdrop[hidden]{display:none}
+    .mass-panel{width:min(980px,100%);background:#fff;border:1px solid #e3e8f0;border-radius:16px;box-shadow:0 24px 60px #0f172a33;overflow:hidden}
+    .mass-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid #edf0f5}
+    .mass-head h2{margin:0;font-size:17px}
+    .mass-head p{margin:4px 0 0;color:#8490a2;font-size:12px}
+    .mass-close{background:#f0f2f6;color:#48546a;padding:8px 12px}
+    .mass-close:hover{background:#e4e8ef}
+    .mass-body{padding:20px;display:flex;flex-direction:column;gap:18px}
+    .mass-section{display:flex;flex-direction:column;gap:9px}
+    .mass-label{font-size:12px;font-weight:650;color:#3b475c;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .mass-label span.hint{font-weight:400;color:#93a0b3;font-size:11px}
+    .mass-target-modes{display:flex;flex-wrap:wrap;gap:7px}
+    .mass-chip{padding:7px 12px;border-radius:20px;background:#eaf1ff;color:#285fc8;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent}
+    .mass-chip:hover{background:#dce8ff}
+    .mass-chip.active{background:#3478f6;color:#fff}
+    .mass-group-row{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+    .mass-group-row select{max-width:220px}
+    .mass-textarea{min-height:80px;font-size:13px}
+    .mass-toolrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .mass-toolrow button{padding:7px 11px;font-size:11px}
+    .mass-var{background:#f3eefe;color:#6b46b5}
+    .mass-var:hover{background:#e9e0fc}
+    .mass-rows{display:flex;flex-direction:column;gap:9px;max-height:340px;overflow:auto;padding:2px;border:1px solid #e8edf4;border-radius:12px;background:#f8fafd}
+    .mass-row{display:grid;grid-template-columns:minmax(150px,200px) minmax(0,1fr) auto;gap:10px;align-items:start;padding:11px;border:1px solid #e3e8f0;border-radius:10px;background:#fff}
+    .mass-row.selected{border-color:#3478f6;box-shadow:0 0 0 2px #3478f61a}
+    .mass-row.skipped{opacity:.55}
+    .mass-row-info{min-width:0}
+    .mass-row-name{font-size:12px;font-weight:600;overflow-wrap:anywhere}
+    .mass-row-meta{font-size:10px;color:#93a0b3;margin-top:3px;overflow-wrap:anywhere}
+    .mass-row-check{display:flex;align-items:center;gap:5px;font-size:11px;color:#5c6880;margin-top:6px;cursor:pointer}
+    .mass-row-check input{width:auto;accent-color:#3478f6}
+    .mass-row textarea{min-height:62px;font-size:12px;resize:vertical}
+    .mass-row-tag{grid-column:1/-1;font-size:10px;color:#7f6bb0;background:#f3eefe;border-radius:6px;padding:4px 8px;justify-self:start}
+    .mass-preview{font-size:12px;color:#40506b;background:#f8fafd;border:1px solid #e8edf4;border-radius:8px;padding:9px 11px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:20px}
+    .mass-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-top:1px solid #edf0f5;flex-wrap:wrap}
+    .mass-summary{font-size:12px;color:#5c6880}
+    .mass-actions{display:flex;gap:9px;align-items:center}
+    .mass-send{background:#7a4fd6}
+    .mass-send:hover{background:#6840bd}
+    .mass-results{margin-top:4px;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+    .mass-result{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:8px;font-size:12px;border:1px solid #e3e8f0}
+    .mass-result.ok{background:#f0faf5;border-color:#cdebdc}
+    .mass-result.fail{background:#fff3f3;border-color:#f3d0d0}
+    .mass-result .dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+    .mass-result.ok .dot{background:#1d9e75}
+    .mass-result.fail .dot{background:#e24b4a}
+    .mass-result .rname{font-weight:600;min-width:90px;overflow-wrap:anywhere}
+    .mass-result .rerr{color:#a33;flex:1;overflow-wrap:anywhere}
+    @media(max-width:720px){.modal-backdrop{padding:12px 8px}.mass-body{padding:14px;gap:14px}.mass-row{grid-template-columns:1fr}.mass-footer{padding:14px}.mass-head{padding:14px}}
     .error{color:#bf3e3e!important}
     @media(max-width:1100px){.workspace.has-devices{grid-template-columns:1fr}.device-items{flex-direction:row;max-height:none;overflow-x:auto;padding-bottom:3px}.device-item{flex:0 0 var(--preview-size,145px)}.device-preview{aspect-ratio:9/11}.device-list-summary{display:none}.card{grid-template-columns:minmax(0,1fr) 290px;grid-template-rows:auto auto}}
     @media(max-width:760px){header{position:static;align-items:flex-start;padding:12px 16px}.brand-mark{width:34px;height:34px}.header-actions{gap:6px}.header-actions button{padding:8px;font-size:11px}main{padding:18px 12px 28px}.toolbar{margin-bottom:12px}.workspace,.workspace.has-devices{gap:12px}.card{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;grid-template-areas:"head" "screen" "side";padding:12px;gap:12px}.screen-wrap{width:min(100%,calc((100vh - 320px)*9/16))}.device-list{padding:11px}.device-items{gap:8px}.device-item{flex-basis:min(var(--preview-size,125px),45vw)}.device-preview{aspect-ratio:9/10}}
@@ -99,6 +155,7 @@
       <div><h1>海涛中控 v0.1</h1><p>设备管理工作台</p></div>
     </div>
     <div class="header-actions">
+      <button id="mass-send-toggle" class="secondary" aria-pressed="false" disabled>差异化群发</button>
       <button id="all-devices-toggle" class="secondary" aria-pressed="false" disabled>控制所有手机</button>
       <button id="preview-live-toggle" class="secondary active" aria-pressed="true">小窗实时预览</button>
       <button id="refresh">刷新设备</button>
@@ -114,7 +171,67 @@
       <aside id="device-list" class="device-list" aria-label="设备列表"></aside>
     </div>
   </main>
+  <div id="mass-backdrop" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-label="差异化群发">
+    <div class="mass-panel">
+      <div class="mass-head">
+        <div><h2>差异化群发</h2><p>为每台手机发送不同内容；未单独填写的设备使用默认内容</p></div>
+        <button id="mass-close" class="mass-close">关闭</button>
+      </div>
+      <div class="mass-body">
+        <div class="mass-section">
+          <div class="mass-label">目标设备 <span class="hint">可按需选择参与本次群发的设备</span></div>
+          <div class="mass-target-modes" id="mass-target-modes">
+            <button class="mass-chip active" data-mode="all">全部已连接</button>
+            <button class="mass-chip" data-mode="group">按分组</button>
+            <button class="mass-chip" data-mode="custom">手动选择</button>
+          </div>
+          <div class="mass-group-row" id="mass-group-row" hidden>
+            <select id="mass-group-select" aria-label="选择分组"></select>
+            <span class="hint" id="mass-group-count"></span>
+          </div>
+        </div>
+        <div class="mass-section">
+          <div class="mass-label">默认内容 <span class="hint">作为模板，未填写独立内容的设备将使用此内容</span></div>
+          <textarea id="mass-default" class="mass-textarea" placeholder="输入默认文本，例如：你好，{{name}}，这是第 {{index}} 台设备"></textarea>
+          <div class="mass-toolrow">
+            <button class="mass-var secondary" data-var="{{name}}">插入设备名</button>
+            <button class="mass-var secondary" data-var="{{index}}">插入序号</button>
+            <button class="mass-var secondary" data-var="{{udid}}">插入 UDID</button>
+            <span class="hint">变量会在发送前替换为每台设备的实际值</span>
+          </div>
+        </div>
+        <div class="mass-section">
+          <div class="mass-label">逐台内容 <span class="hint">每台可单独改写；勾选“使用默认”则跟随模板</span></div>
+          <div class="mass-toolrow">
+            <button id="mass-fill-lines" class="secondary">按行批量填充</button>
+            <button id="mass-fill-default" class="secondary">全部填入默认内容</button>
+            <button id="mass-clear-custom" class="secondary">清除独立内容</button>
+          </div>
+          <div id="mass-rows" class="mass-rows"></div>
+        </div>
+        <div class="mass-section" id="mass-result-section" hidden>
+          <div class="mass-label">发送结果</div>
+          <div id="mass-results" class="mass-results"></div>
+        </div>
+      </div>
+      <div class="mass-footer">
+        <div class="mass-summary" id="mass-summary">已选择 0 台设备</div>
+        <div class="mass-actions">
+          <span class="message" id="mass-message"></span>
+          <button id="mass-send" class="mass-send">开始群发</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script>
+    const COMMON_APPS = [
+      {name:"微信",id:"com.tencent.xin"},{name:"抖音",id:"com.ss.iphone.ugc.Aweme"},
+      {name:"小红书",id:"com.xingin.discover"},{name:"快手",id:"com.qiangjia.gif"},
+      {name:"淘宝",id:"com.taobao.taobao4iphone"},{name:"京东",id:"com.360buy.jdmobile"},
+      {name:"闲鱼",id:"com.taobao.fleamarket"},{name:"QQ",id:"com.tencent.mqq"},
+      {name:"支付宝",id:"com.alipay.ipaynow"},{name:"设置",id:"com.apple.Preferences"},
+      {name:"Safari 浏览器",id:"com.apple.mobilesafari"},{name:"备忘录",id:"com.apple.mobilenotes"}
+    ];
     const root = document.getElementById("devices");
     const notice = document.getElementById("notice");
     const lastRefresh = document.getElementById("last-refresh");
@@ -369,6 +486,8 @@
     function updateAllDevicesButton() {
       const button = document.getElementById("all-devices-toggle");
       button.disabled = devices.length < 2 || connectingAllDevices;
+      const massButton = document.getElementById("mass-send-toggle");
+      if (massButton) massButton.disabled = massConnectedDevices().length === 0;
       button.setAttribute("aria-pressed", String(allDevicesControl));
       button.classList.toggle("active", allDevicesControl);
       button.textContent = connectingAllDevices
@@ -481,6 +600,20 @@
               </div>
             </section>
             <section class="panel-section">
+              <div class="section-title">应用</div>
+              <div class="app-tools">
+                <select class="app-bundle" aria-label="选择应用">
+                  ${COMMON_APPS.map(app => `<option value="${esc(app.id)}">${esc(app.name)}</option>`).join("")}
+                </select>
+                <input class="app-bundle-custom" aria-label="自定义 Bundle ID" placeholder="或输入 Bundle ID">
+                <div class="app-actions">
+                  <button class="app-open secondary" ${d.sessionId ? "" : "disabled"}>打开应用</button>
+                  <button class="app-uninstall danger" ${d.sessionId ? "" : "disabled"} title="WDA 直连模式不支持卸载，请使用 Appium 会话">卸载应用</button>
+                </div>
+                <span class="message"></span>
+              </div>
+            </section>
+            <section class="panel-section">
               <div class="section-title">剪贴板</div>
               <div class="clipboard">
                 <textarea class="clipboard-text" placeholder="剪贴板文本"></textarea>
@@ -514,17 +647,15 @@
     function drawDeviceList() {
       const connectedCount = devices.filter(d => d.sessionId).length;
       const otherDevices = devices.filter(d => d.udid !== selectedUDID);
-      deviceList.hidden = devices.length < 2;
-      deviceList.parentElement.classList.toggle("has-devices", devices.length > 1);
-      deviceList.innerHTML = `
-        <div class="device-list-head"><strong>设备列表</strong><span class="device-list-count">${connectedCount}/${devices.length} 已连接</span></div>
-        <div class="preview-size-control">
-          <label for="preview-size">小窗大小</label>
-          <input id="preview-size" type="range" min="140" max="320" step="10" value="${previewSize}" aria-label="调整小窗大小">
-          <span id="preview-size-value">${previewSize}px</span>
-        </div>
-        <div class="device-list-summary">点击小窗切换大屏主控；开启“控制所有手机”可同步操作。</div>
-        <div class="device-items">${otherDevices.length ? otherDevices.map(d => `
+      const groupMap = new Map();
+      for (const d of otherDevices) {
+        const key = d.group || "未分组";
+        if (!groupMap.has(key)) groupMap.set(key, []);
+        groupMap.get(key).push(d);
+      }
+      const groupedList = [...groupMap.entries()].map(([group, members]) => `
+        <div class="device-group-head"><span>${esc(group)}</span><span class="gap">${members.length} 台</span></div>` +
+        members.map(d => `
           <div class="device-item ${d.udid === selectedUDID ? "current" : ""}" data-udid="${esc(d.udid)}" role="button" tabindex="0" aria-label="切换到 ${esc(d.name || "iPhone")}">
             <div class="device-preview">
               ${d.sessionId
@@ -535,7 +666,7 @@
             <div class="device-item-footer">
               <div>
                 <div class="device-item-name">${esc(d.name || "iPhone")}</div>
-                <div class="device-item-meta">${esc(d.connectionType || "USB")}</div>
+                <div class="device-item-meta">${esc(d.group || "未分组")} · ${esc(d.connectionType || "USB")}</div>
               </div>
               <div class="device-item-actions">
                 ${d.udid === selectedUDID
@@ -545,8 +676,18 @@
                     : `<button class="connect-target secondary" data-udid="${esc(d.udid)}">连接</button>`}
               </div>
             </div>
-          </div>`).join("")
-          : '<div class="empty">当前主控已显示在大屏</div>'}</div>`;
+          </div>`).join("")).join("");
+      deviceList.hidden = devices.length < 2;
+      deviceList.parentElement.classList.toggle("has-devices", devices.length > 1);
+      deviceList.innerHTML = `
+        <div class="device-list-head"><strong>设备列表</strong><span class="device-list-count">${connectedCount}/${devices.length} 已连接</span></div>
+        <div class="preview-size-control">
+          <label for="preview-size">小窗大小</label>
+          <input id="preview-size" type="range" min="140" max="320" step="10" value="${previewSize}" aria-label="调整小窗大小">
+          <span id="preview-size-value">${previewSize}px</span>
+        </div>
+        <div class="device-list-summary">点击小窗切换大屏主控；开启“控制所有手机”可同步操作。</div>
+        <div class="device-items">${groupedList || '<div class="empty">当前主控已显示在大屏</div>'}</div>`;
 
       deviceList.querySelectorAll(".device-thumb").forEach(img => {
         const preview = previewImages.get(img.dataset.udid);
@@ -736,6 +877,24 @@
         field(".clipboard-text").value = result.value || "";
         toast(card, "已读取手机剪贴板");
       });
+      const resolveBundle = () => {
+        const custom = field(".app-bundle-custom").value.trim();
+        return custom || field(".app-bundle").value;
+      };
+      field(".app-open").onclick = () => run(card, async () => {
+        const bundleId = resolveBundle();
+        if (!bundleId) throw new Error("请选择或输入应用 Bundle ID");
+        await request(`/api/devices/${encodeURIComponent(device.udid)}/app`, {method:"POST",body:JSON.stringify({action:"open",bundleId})});
+        toast(card, `已尝试打开 ${bundleId}`);
+      });
+      field(".app-uninstall").onclick = () => run(card, async () => {
+        if (device.sessionType === "WDA") throw new Error("WDA 直连模式不支持卸载，请切换到 Appium 会话");
+        const bundleId = resolveBundle();
+        if (!bundleId) throw new Error("请选择或输入应用 Bundle ID");
+        if (!confirm(`确认卸载 ${bundleId}？此操作不可撤销。`)) return;
+        await request(`/api/devices/${encodeURIComponent(device.udid)}/app`, {method:"POST",body:JSON.stringify({action:"uninstall",bundleId})});
+        toast(card, `已卸载 ${bundleId}`);
+      });
       bindScreen(card, device);
     }
 
@@ -884,7 +1043,7 @@
       finally {
         buttons.forEach(button => button.disabled = false);
         const connected = card.querySelector(".badge").textContent.includes("已连接");
-        card.querySelectorAll(".screenshot,.messages,.lock,.unlock,.home,.reboot,.portrait,.landscape,.volume-up,.volume-down,.type,.clipboard-set,.clipboard-get").forEach(button => button.disabled = !connected);
+        card.querySelectorAll(".screenshot,.messages,.lock,.unlock,.home,.reboot,.portrait,.landscape,.volume-up,.volume-down,.type,.type-enter,.clipboard-set,.clipboard-get,.app-open,.app-uninstall").forEach(button => button.disabled = !connected);
         if (connected && card.querySelector(".badge").textContent.startsWith("WDA")) card.querySelector(".reboot").disabled = true;
       }
     }
@@ -895,6 +1054,270 @@
       node.className = `message${error ? " error" : ""}`;
       setTimeout(() => { if (node.textContent === message) node.textContent = ""; }, 5000);
     }
+
+    // ===== 差异化群发 =====
+    const massBackdrop = document.getElementById("mass-backdrop");
+    const massRows = document.getElementById("mass-rows");
+    const massDefault = document.getElementById("mass-default");
+    const massSummary = document.getElementById("mass-summary");
+    const massMessage = document.getElementById("mass-message");
+    const massResults = document.getElementById("mass-results");
+    const massResultSection = document.getElementById("mass-result-section");
+    const massGroupSelect = document.getElementById("mass-group-select");
+    const massGroupRow = document.getElementById("mass-group-row");
+    const massGroupCount = document.getElementById("mass-group-count");
+    let massMode = "all";
+    let massGroup = "";
+    // 每台设备的独立内容：{ [udid]: { text, useDefault } }
+    const massEntries = new Map();
+
+    function massConnectedDevices() {
+      return devices.filter(d => d.sessionId);
+    }
+
+    function massTargetDevices() {
+      const connected = massConnectedDevices();
+      if (massMode === "group") {
+        return massGroup ? connected.filter(d => d.group === massGroup) : [];
+      }
+      if (massMode === "custom") {
+        return connected.filter(d => massEntries.has(d.udid) && massEntries.get(d.udid).selected !== false);
+      }
+      return connected;
+    }
+
+    function renderMassGroups() {
+      const groups = [...new Set(massConnectedDevices().map(d => d.group).filter(Boolean))].sort();
+      const current = massGroupSelect.value;
+      massGroupSelect.innerHTML = groups.length
+        ? `<option value="">未分组设备</option>` + groups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join("")
+        : '<option value="">（暂无分组）</option>';
+      if (groups.includes(current) || current === "") massGroupSelect.value = current;
+      if (!massGroup && groups.length) {
+        massGroup = groups[0];
+        massGroupSelect.value = massGroup;
+      }
+      updateMassGroupCount();
+    }
+
+    function updateMassGroupCount() {
+      const count = massGroup ? massConnectedDevices().filter(d => d.group === massGroup).length : 0;
+      massGroupCount.textContent = count ? `该组 ${count} 台已连接` : "";
+    }
+
+    function ensureMassEntry(udid) {
+      if (!massEntries.has(udid)) {
+        massEntries.set(udid, {text: "", useDefault: true, selected: true});
+      }
+      return massEntries.get(udid);
+    }
+
+    function renderMassRows() {
+      const targets = massMode === "custom" ? massConnectedDevices() : massTargetDevices();
+      if (!targets.length) {
+        massRows.innerHTML = '<div class="empty" style="padding:18px">没有符合条件的已连接设备</div>';
+        updateMassSummary(0, 0);
+        return;
+      }
+      massRows.innerHTML = targets.map((d, index) => {
+        const entry = ensureMassEntry(d.udid);
+        return `<div class="mass-row ${massMode === "custom" && entry.selected === false ? "skipped" : ""}" data-udid="${esc(d.udid)}">
+          <div class="mass-row-info">
+            <div class="mass-row-name">${esc(d.name || "iPhone")}</div>
+            <div class="mass-row-meta">${esc(d.group || "未分组")} · ${esc(d.connectionType || "USB")}</div>
+            <label class="mass-row-check"><input type="checkbox" class="mass-row-select" ${entry.selected !== false ? "checked" : ""}> 参与本次群发</label>
+          </div>
+          <div>
+            <textarea class="mass-row-text" placeholder="留空则使用默认内容" ${entry.useDefault ? "disabled" : ""}>${esc(entry.text)}</textarea>
+          </div>
+          <div>
+            <label class="mass-row-check"><input type="checkbox" class="mass-row-usedefault" ${entry.useDefault ? "checked" : ""}> 使用默认</label>
+          </div>
+        </div>`;
+      }).join("");
+      updateMassSummary(targets.length, targets.filter(d => massMode === "custom" ? massEntries.get(d.udid).selected !== false : true).length);
+    }
+
+    function updateMassSummary(shown, selected) {
+      const defaultReady = massDefault.value.trim().length > 0;
+      massSummary.textContent = `显示 ${shown} 台 · 参与 ${selected} 台${defaultReady ? "" : " · 默认内容为空"}`;
+      document.getElementById("mass-send").disabled = selected === 0;
+    }
+
+    function renderMassVariables(text, device, index) {
+      return String(text || "")
+        .replaceAll("{{name}}", device.name || "iPhone")
+        .replaceAll("{{index}}", String(index + 1))
+        .replaceAll("{{udid}}", device.udid);
+    }
+
+    function massPayloadForDevice(device, index) {
+      const entry = massEntries.get(device.udid) || {text: "", useDefault: true};
+      const raw = entry.useDefault || !entry.text.trim() ? massDefault.value : entry.text;
+      const text = renderMassVariables(raw, device, index);
+      return {text};
+    }
+
+    function openMassPanel() {
+      massResultSection.hidden = true;
+      massResults.innerHTML = "";
+      massMessage.textContent = "";
+      renderMassGroups();
+      renderMassRows();
+      massBackdrop.hidden = false;
+    }
+
+    function closeMassPanel() {
+      massBackdrop.hidden = true;
+    }
+
+    massRows.addEventListener("input", event => {
+      const row = event.target.closest(".mass-row");
+      if (!row) return;
+      const entry = ensureMassEntry(row.dataset.udid);
+      if (event.target.classList.contains("mass-row-text")) {
+        entry.text = event.target.value;
+      }
+    });
+    massRows.addEventListener("change", event => {
+      const row = event.target.closest(".mass-row");
+      if (!row) return;
+      const entry = ensureMassEntry(row.dataset.udid);
+      if (event.target.classList.contains("mass-row-select")) {
+        entry.selected = event.target.checked;
+        row.classList.toggle("skipped", !event.target.checked);
+        renderMassRows();
+      } else if (event.target.classList.contains("mass-row-usedefault")) {
+        entry.useDefault = event.target.checked;
+        const text = row.querySelector(".mass-row-text");
+        if (text) text.disabled = entry.useDefault;
+      }
+    });
+    massDefault.addEventListener("input", () => renderMassRows());
+
+    document.getElementById("mass-target-modes").addEventListener("click", event => {
+      const chip = event.target.closest(".mass-chip");
+      if (!chip) return;
+      massMode = chip.dataset.mode;
+      document.querySelectorAll(".mass-chip").forEach(c => c.classList.toggle("active", c === chip));
+      massGroupRow.hidden = massMode !== "group";
+      if (massMode === "group") renderMassGroups();
+      renderMassRows();
+    });
+    massGroupSelect.addEventListener("change", () => {
+      massGroup = massGroupSelect.value;
+      updateMassGroupCount();
+      renderMassRows();
+    });
+
+    document.querySelector(".mass-toolrow .mass-var")?.addEventListener("click", () => {});
+    document.querySelectorAll(".mass-var").forEach(button => {
+      button.addEventListener("click", () => {
+        const token = button.dataset.var;
+        const start = massDefault.selectionStart ?? massDefault.value.length;
+        const end = massDefault.selectionEnd ?? start;
+        massDefault.value = massDefault.value.slice(0, start) + token + massDefault.value.slice(end);
+        massDefault.focus();
+        massDefault.setSelectionRange(start + token.length, start + token.length);
+        renderMassRows();
+      });
+    });
+
+    document.getElementById("mass-fill-default").onclick = () => {
+      for (const udid of massEntries.keys()) {
+        massEntries.get(udid).useDefault = true;
+      }
+      renderMassRows();
+    };
+    document.getElementById("mass-clear-custom").onclick = () => {
+      for (const entry of massEntries.values()) {
+        entry.text = "";
+        entry.useDefault = true;
+      }
+      massDefault.value = "";
+      renderMassRows();
+    };
+    document.getElementById("mass-fill-lines").onclick = () => {
+      const lines = window.prompt("按设备顺序输入内容，每行一台（空行表示该设备使用默认内容）：", "");
+      if (lines === null) return;
+      const pieces = lines.split("\n");
+      const targets = massMode === "custom" ? massConnectedDevices().filter(d => massEntries.get(d.udid)?.selected !== false) : massTargetDevices();
+      targets.forEach((device, index) => {
+        const value = pieces[index];
+        const entry = ensureMassEntry(device.udid);
+        if (value !== undefined && value.trim() !== "") {
+          entry.text = value.replace(/\r$/, "");
+          entry.useDefault = false;
+        } else {
+          entry.text = "";
+          entry.useDefault = true;
+        }
+      });
+      renderMassRows();
+    };
+
+    function renderMassResults(result) {
+      massResultSection.hidden = false;
+      massResults.innerHTML = result.results.map(item => `
+        <div class="mass-result ${item.ok ? "ok" : "fail"}">
+          <span class="dot"></span>
+          <span class="rname">${esc(item.name || item.udid)}</span>
+          <span class="rerr">${item.ok ? "已发送" : esc(`${item.code || "error"}：${item.error || "失败"}`)}</span>
+        </div>`).join("");
+    }
+
+    document.getElementById("mass-send").onclick = async () => {
+      const connected = massConnectedDevices();
+      const targets = massTargetDevices().filter(d => massMode !== "custom" || massEntries.get(d.udid)?.selected !== false);
+      if (!targets.length) return;
+      massMessage.textContent = "";
+      const sendButton = document.getElementById("mass-send");
+      sendButton.disabled = true;
+      sendButton.textContent = "发送中…";
+      try {
+        const ordered = connected.filter(d => targets.some(t => t.udid === d.udid));
+        const payload = {
+          operation: "type",
+          targets: ordered.map((device, index) => ({
+            udid: device.udid,
+            body: massPayloadForDevice(device, index)
+          }))
+        };
+        const result = await request("/api/batch", {method: "POST", body: JSON.stringify(payload)});
+        renderMassResults(result);
+        const failures = result.results.filter(item => !item.ok);
+        for (const failure of failures) {
+          if (failure.code === "session_lost" || failure.code === "session_required") handleSessionLost(failure.udid);
+        }
+        massMessage.textContent = failures.length
+          ? `成功 ${result.succeeded}/${result.total} 台，${failures.length} 台失败`
+          : `已成功发送到 ${result.succeeded} 台设备`;
+        massMessage.className = failures.length ? "message error" : "message";
+        refreshDevices();
+      } catch (error) {
+        massMessage.textContent = error.message || "群发失败";
+        massMessage.className = "message error";
+      } finally {
+        sendButton.disabled = false;
+        sendButton.textContent = "开始群发";
+        updateMassSummary(massMode === "custom" ? connected.length : massTargetDevices().length, targets.length);
+      }
+    };
+
+    const massToggle = document.getElementById("mass-send-toggle");
+    massToggle.onclick = () => {
+      massToggle.classList.add("active");
+      massToggle.setAttribute("aria-pressed", "true");
+      openMassPanel();
+    };
+    document.getElementById("mass-close").onclick = () => {
+      massBackdrop.hidden = true;
+      massToggle.classList.remove("active");
+      massToggle.setAttribute("aria-pressed", "false");
+    };
+    massBackdrop.addEventListener("click", event => {
+      if (event.target === massBackdrop) document.getElementById("mass-close").click();
+    });
 
     document.getElementById("all-devices-toggle").onclick = toggleAllDevicesControl;
     updateAllDevicesButton();
