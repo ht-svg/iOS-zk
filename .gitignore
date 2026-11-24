@@ -1,4 +1,5 @@
 *.exe
+*.exe~
 *.test
 dist/*.zip
 coverage.out
