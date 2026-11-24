@@ -55,15 +55,15 @@ func (s *server) adoptRunningWDA(ctx context.Context, udid string) (string, stri
 }
 
 func (s *server) ensureWDARelay(udid string) (string, error) {
-	return s.ensureWDAServiceRelay(udid, 8100, &s.wdaRelay)
+	return s.ensureWDAServiceRelay(udid, runtimeCfg.WDAPort, &s.wdaRelay)
 }
 
 func (s *server) ensureWDAMjpegRelay(udid string) (string, error) {
-	return s.ensureWDAServiceRelay(udid, 9100, &s.wdaStreamRelay)
+	return s.ensureWDAServiceRelay(udid, runtimeCfg.WDAStreamPort, &s.wdaStreamRelay)
 }
 
 func (s *server) ensureWDAServiceRelay(udid string, port uint16, set *relaySet) (string, error) {
-	devices, err := listUSBMuxDevices("127.0.0.1:27015")
+	devices, err := listUSBMuxDevices(runtimeCfg.USBMuxAddress)
 	if err != nil {
 		return "", err
 	}
@@ -175,15 +175,15 @@ func relayWDAConnection(client net.Conn, deviceID uint32, port uint16) {
 }
 
 func connectUSBMuxService(deviceID uint32, port uint16) (net.Conn, error) {
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:27015", 3*time.Second)
+	conn, err := net.DialTimeout("tcp", runtimeCfg.USBMuxAddress, runtimeCfg.RelayDialTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("连接 usbmuxd: %w", err)
 	}
-	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(runtimeCfg.USBMuxRequestTimeout))
 	portNumber := binary.BigEndian.Uint16([]byte{byte(port), byte(port >> 8)})
 	payload := []byte(fmt.Sprintf(
-		`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>ClientVersionString</key><string>libusbmuxd 1.1.0</string><key>MessageType</key><string>Connect</string><key>ProgName</key><string>GoPhoneManager</string><key>DeviceID</key><integer>%d</integer><key>PortNumber</key><integer>%d</integer><key>kLibUSBMuxVersion</key><integer>3</integer></dict></plist>`,
-		deviceID, portNumber,
+		`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>ClientVersionString</key><string>libusbmuxd 1.1.0</string><key>MessageType</key><string>Connect</string><key>ProgName</key><string>%s</string><key>DeviceID</key><integer>%d</integer><key>PortNumber</key><integer>%d</integer><key>kLibUSBMuxVersion</key><integer>3</integer></dict></plist>`,
+		runtimeCfg.ClientName, deviceID, portNumber,
 	))
 	packet := make([]byte, 16+len(payload))
 	binary.LittleEndian.PutUint32(packet[:4], uint32(len(packet)))

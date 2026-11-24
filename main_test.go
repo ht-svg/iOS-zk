@@ -372,9 +372,9 @@ func TestWriteErrorLogsChineseMessage(t *testing.T) {
 
 	response := httptest.NewRecorder()
 	writeError(response, http.StatusBadGateway, errors.New("Appium 返回错误: Unhandled endpoint: /wda/example"))
-	if !strings.Contains(output.String(), "请求失败") ||
+	if !strings.Contains(output.String(), "event=http_error") ||
 		!strings.Contains(output.String(), "设备上的 WDA 不支持此操作接口") {
-		t.Fatalf("expected a Chinese console error, got %q", output.String())
+		t.Fatalf("expected a structured Chinese console error, got %q", output.String())
 	}
 }
 

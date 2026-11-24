@@ -6,22 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
-)
-
-const (
-	appiumStreamFrameInterval = time.Second / 15
-	sessionProbeTimeout       = 5 * time.Second
-	windowSizeCacheTTL        = 10 * time.Second
-	batchConcurrency          = 8
-	batchTotalTimeout         = 60 * time.Second
-	batchDeviceTimeout        = 30 * time.Second
-	maxBatchDevices           = 128
 )
 
 func (s *server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
@@ -71,14 +60,14 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request) {
 			}
 			// Older WDA builds do not expose /appium/settings. Keep streaming
 			// with the device defaults instead of failing the whole stream.
-			log.Printf("设置设备 %s 的 WDA 实时视频参数失败，使用默认参数：%s", udid, chineseError(err))
+			logDeviceEvent(r.Context(), "warn", udid, "wda_mjpeg_settings_failed", err)
 		}
 		endpoint, err := s.ensureWDAMjpegRelay(udid)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, fmt.Errorf("连接 WDA 原生 MJPEG 视频服务失败: %w", err))
 			return
 		}
-		s.proxyMJPEGStream(w, r, endpoint)
+		s.proxyMJPEGStream(w, r, udid, endpoint)
 		return
 	}
 
@@ -91,23 +80,23 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	ticker := time.NewTicker(appiumStreamFrameInterval)
+	ticker := time.NewTicker(time.Second / time.Duration(runtimeCfg.AppiumStreamFPS))
 	defer ticker.Stop()
 
 	for {
 		result, err := s.sessionRequest(r.Context(), udid, sessionID, http.MethodGet, sessionPath(sessionID)+"/screenshot", nil)
 		if err != nil {
-			log.Printf("设备 %s 的实时画面已停止，获取截图失败：%s", udid, chineseError(err))
+			logDeviceEvent(r.Context(), "warn", udid, "stream_screenshot_failed", err)
 			return
 		}
 		encoded := stringValue(result["value"])
 		if encoded == "" {
-			log.Printf("设备 %s 的实时画面已停止：手机未返回截图", udid)
+			logDeviceEvent(r.Context(), "warn", udid, "stream_empty_screenshot", nil)
 			return
 		}
 		frame, err := encodeAppiumFrame(encoded)
 		if err != nil {
-			log.Printf("设备 %s 的实时画面已停止：%s", udid, chineseError(err))
+			logDeviceEvent(r.Context(), "warn", udid, "stream_frame_failed", err)
 			return
 		}
 
@@ -131,7 +120,7 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *server) proxyMJPEGStream(w http.ResponseWriter, r *http.Request, endpoint string) {
+func (s *server) proxyMJPEGStream(w http.ResponseWriter, r *http.Request, udid, endpoint string) {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{Timeout: 3 * time.Second}).DialContext,
 	}
@@ -176,7 +165,7 @@ func (s *server) proxyMJPEGStream(w http.ResponseWriter, r *http.Request, endpoi
 		}
 		if readErr != nil {
 			if !errors.Is(readErr, io.EOF) && r.Context().Err() == nil {
-				log.Printf("WDA MJPEG 视频流中断：%s", chineseError(readErr))
+				logDeviceEvent(r.Context(), "warn", udid, "wda_mjpeg_stream_interrupted", readErr)
 			}
 			return
 		}
@@ -337,8 +326,8 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("批量操作至少需要一台设备"))
 		return
 	}
-	if len(request.UDIDs) > maxBatchDevices {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("批量操作最多支持 %d 台设备", maxBatchDevices))
+	if len(request.UDIDs) > runtimeCfg.MaxBatchDevices {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("批量操作最多支持 %d 台设备", runtimeCfg.MaxBatchDevices))
 		return
 	}
 	seen := make(map[string]bool, len(request.UDIDs))
@@ -360,8 +349,8 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := make([]batchResult, len(request.UDIDs))
-	sem := make(chan struct{}, batchConcurrency)
-	requestCtx, cancelRequest := context.WithTimeout(r.Context(), batchTotalTimeout)
+	sem := make(chan struct{}, runtimeCfg.BatchConcurrency)
+	requestCtx, cancelRequest := context.WithTimeout(r.Context(), runtimeCfg.BatchTotalTimeout)
 	defer cancelRequest()
 	var wait sync.WaitGroup
 	for index, udid := range request.UDIDs {
@@ -379,7 +368,7 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 				results[index] = result
 				return
 			}
-			ctx, cancel := context.WithTimeout(requestCtx, batchDeviceTimeout)
+			ctx, cancel := context.WithTimeout(requestCtx, runtimeCfg.BatchDeviceTimeout)
 			defer cancel()
 			if err := s.performBatchOperation(ctx, udid, sessionID, request.Operation, payload); err != nil {
 				result.Error = err.Error()

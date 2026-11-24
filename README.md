@@ -67,6 +67,31 @@ go build -o 海涛中控v0.1.exe .
 
 `code` 可能是 `session_required`、`session_lost`、`unsupported` 或 `device_error`。前端会对 `session_lost` / `session_required` 的设备触发自动重连。
 
+## 可配置项
+
+以下环境变量都有默认值，是否需要设置取决于部署环境：
+
+| 环境变量 | 默认值 | 说明 |
+|---|---|---|
+| `GO_PHONE_MANAGER_LISTEN` | `127.0.0.1:8787` | Web 服务监听地址 |
+| `GO_PHONE_MANAGER_USB_MUX` | `127.0.0.1:27015` | Windows usbmuxd 地址 |
+| `GO_PHONE_MANAGER_APPIUM_URL` | `http://127.0.0.1:4723` | 默认 Appium 地址 |
+| `GO_PHONE_MANAGER_WDA_PORT` | `8100` | 设备 WDA 端口 |
+| `GO_PHONE_MANAGER_WDA_STREAM_PORT` | `9100` | 设备 MJPEG 端口 |
+| `GO_PHONE_MANAGER_HTTP_TIMEOUT` | `45` | Appium/WDA HTTP 请求超时（秒） |
+| `GO_PHONE_MANAGER_PROBE_TIMEOUT` | `5` | 会话探活超时（秒） |
+| `GO_PHONE_MANAGER_WINDOW_SIZE_TTL` | `10` | 窗口尺寸缓存时间（秒） |
+| `GO_PHONE_MANAGER_BATCH_CONCURRENCY` | `8` | 批量操作并发数 |
+| `GO_PHONE_MANAGER_MAX_BATCH_DEVICES` | `128` | 单批量请求设备上限 |
+| `GO_PHONE_MANAGER_BATCH_TOTAL_TIMEOUT` | `60` | 批量请求总超时（秒） |
+| `GO_PHONE_MANAGER_BATCH_DEVICE_TIMEOUT` | `30` | 批量单设备超时（秒） |
+| `GO_PHONE_MANAGER_APPIUM_STREAM_FPS` | `15` | Appium 回退投屏帧率 |
+| `GO_PHONE_MANAGER_CONFIG_DIR` | `GoPhoneManager` | `%LOCALAPPDATA%` 下的配置目录 |
+| `GO_PHONE_MANAGER_CONFIG_FILE` | `config.json` | 配置文件名 |
+| `GO_PHONE_MANAGER_CLIENT_NAME` | `GoPhoneManager` | usbmux 协议中的客户端名 |
+
+日志为结构化文本：每个请求输出 `request_id / method / path / status / duration_ms`，设备级事件额外带 `udid` 和 `event`，便于排查并发问题。
+
 ## 开发质量门禁
 
 代码已按职责拆分：`main.go`（启动与路由）、`config.go`（配置与设备列表）、`session.go`（会话生命周期）、`api.go`（HTTP 接口）、`operations.go`（设备操作与批量参数处理），另有 `appium.go`、`usbmux.go`、`wda_relay.go`。

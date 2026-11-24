@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -29,14 +28,14 @@ func (s *server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	wasWDA := s.wdaSessions[udid]
 	s.mu.RUnlock()
 	if existingSession != "" {
-		probeCtx, cancel := context.WithTimeout(r.Context(), sessionProbeTimeout)
+		probeCtx, cancel := context.WithTimeout(r.Context(), runtimeCfg.ProbeTimeout)
 		probeErr := s.probeSession(probeCtx, udid, existingSession)
 		cancel()
 		if probeErr == nil {
 			writeJSON(w, http.StatusOK, map[string]string{"sessionId": existingSession, "sessionType": sessionType(wasWDA)})
 			return
 		}
-		log.Printf("设备 %s 的现有会话已失效，正在重新创建：%s", udid, chineseError(probeErr))
+		logDeviceEvent(r.Context(), "warn", udid, "session_probe_failed_recreating", probeErr)
 		s.invalidateSession(udid)
 		if wasWDA {
 			if sessionID, wdaURL, wdaErr := s.adoptRunningWDA(r.Context(), udid); wdaErr == nil {
@@ -44,7 +43,7 @@ func (s *server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusOK, map[string]string{"sessionId": sessionID, "sessionType": "WDA"})
 				return
 			} else {
-				log.Printf("设备 %s 的 WDA 会话重建失败，尝试 Appium：%s", udid, chineseError(wdaErr))
+				logDeviceEvent(r.Context(), "warn", udid, "wda_session_recreate_failed", wdaErr)
 			}
 		}
 	}
@@ -106,7 +105,7 @@ func (s *server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	if !wda {
 		if _, requestErr := s.appiumRequest(r.Context(), baseURL, http.MethodDelete, sessionPath(sessionID), nil); requestErr != nil {
 			warning = "本地会话已清理，但 Appium 端删除失败：" + requestErr.Error()
-			log.Printf("设备 %s 的 Appium 会话删除失败：%s", udid, chineseError(requestErr))
+			logDeviceEvent(r.Context(), "warn", udid, "appium_session_delete_failed", requestErr)
 		}
 	}
 	response := map[string]any{"ok": true}
@@ -279,7 +278,7 @@ func (s *server) appiumURL(udid string) string {
 	if endpoint := s.config.AppiumURLs[udid]; endpoint != "" {
 		return endpoint
 	}
-	return "http://127.0.0.1:4723"
+	return runtimeCfg.DefaultAppiumURL
 }
 
 func (s *server) sessionURL(udid string) string {
@@ -291,7 +290,7 @@ func (s *server) sessionURL(udid string) string {
 	if endpoint := s.config.AppiumURLs[udid]; endpoint != "" {
 		return endpoint
 	}
-	return "http://127.0.0.1:4723"
+	return runtimeCfg.DefaultAppiumURL
 }
 
 func (s *server) isWDASession(udid string) bool {

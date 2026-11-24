@@ -205,7 +205,7 @@ func (s *server) windowSize(ctx context.Context, udid, sessionID string) (int, i
 	if s.windowSizes == nil {
 		s.windowSizes = make(map[string]windowSizeEntry)
 	}
-	s.windowSizes[udid] = windowSizeEntry{width: width, height: height, expires: now.Add(windowSizeCacheTTL)}
+	s.windowSizes[udid] = windowSizeEntry{width: width, height: height, expires: now.Add(runtimeCfg.WindowSizeTTL)}
 	s.mu.Unlock()
 	return width, height, nil
 }
@@ -343,7 +343,7 @@ func (s *server) setClipboardDevice(ctx context.Context, udid, sessionID string,
 		return err
 	}
 	endpoint := sessionPath(sessionID) + "/appium/device/set_clipboard"
-	body := map[string]string{"content": base64String(input.Text), "contentType": "text/plain", "label": "GoPhoneManager"}
+	body := map[string]string{"content": base64String(input.Text), "contentType": "text/plain", "label": runtimeCfg.ClientName}
 	if s.isWDASession(udid) {
 		endpoint = "/wda/setPasteboard"
 		body = map[string]string{"content": base64String(input.Text), "uti": "public.utf8-plain-text"}

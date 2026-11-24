@@ -35,11 +35,11 @@ func defaultConfigPath() (string, error) {
 		}
 		root = filepath.Join(home, "AppData", "Local")
 	}
-	dir := filepath.Join(root, "GoPhoneManager")
+	dir := filepath.Join(root, runtimeCfg.ConfigDirName)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("create config directory: %w", err)
 	}
-	return filepath.Join(dir, "config.json"), nil
+	return filepath.Join(dir, runtimeCfg.ConfigFileName), nil
 }
 
 func loadConfig(path string) (Config, error) {
@@ -83,7 +83,7 @@ func (s *server) saveConfigLocked() error {
 }
 
 func (s *server) handleDevices(w http.ResponseWriter, r *http.Request) {
-	found, err := listUSBMuxDevices("127.0.0.1:27015")
+	found, err := listUSBMuxDevices(runtimeCfg.USBMuxAddress)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err)
 		return
@@ -100,7 +100,7 @@ func (s *server) handleDevices(w http.ResponseWriter, r *http.Request) {
 		}
 		appiumURL := s.config.AppiumURLs[d.UDID]
 		if appiumURL == "" {
-			appiumURL = "http://127.0.0.1:4723"
+			appiumURL = runtimeCfg.DefaultAppiumURL
 		}
 		devices = append(devices, Device{
 			UDID:           d.UDID,

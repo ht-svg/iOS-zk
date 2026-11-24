@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"time"
 )
 
 //go:embed web/*
@@ -52,7 +51,7 @@ func main() {
 		windowSizes: make(map[string]windowSizeEntry),
 		deviceIDs:   make(map[string]uint32),
 		httpClient: &http.Client{
-			Timeout: 45 * time.Second,
+			Timeout: runtimeCfg.HTTPTimeout,
 			CheckRedirect: func(request *http.Request, via []*http.Request) error {
 				if len(via) >= 5 {
 					return errors.New("Appium 重定向次数过多")
@@ -78,7 +77,7 @@ func main() {
 	mux.HandleFunc("PUT /api/devices/{udid}/clipboard", s.handleSetClipboard)
 	mux.HandleFunc("GET /api/devices/{udid}/messages", s.handleMessages)
 
-	address := "127.0.0.1:8787"
+	address := runtimeCfg.ListenAddress
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("无法启动本地服务：%s", chineseError(err))
@@ -86,7 +85,7 @@ func main() {
 	log.Printf("海涛中控 v0.1 已启动：http://%s", address)
 	log.Printf("配置文件位置：%s", configPath)
 	openBrowser("http://" + address)
-	if err := http.Serve(listener, s.localOnly(mux)); err != nil {
+	if err := http.Serve(listener, s.withRequestLogging(s.localOnly(mux))); err != nil {
 		log.Fatalf("本地服务异常退出：%s", chineseError(err))
 	}
 }
@@ -178,7 +177,7 @@ func decodeJSON(body io.Reader, target any) error {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	log.Printf("请求失败（HTTP %d）：%s", status, chineseError(err))
+	log.Printf("event=http_error status=%d error=%q", status, chineseError(err))
 	writeJSON(w, status, map[string]string{"error": err.Error()})
 }
 

@@ -28,20 +28,20 @@ type plistValue struct {
 }
 
 func listUSBMuxDevices(address string) ([]muxDevice, error) {
-	conn, err := net.DialTimeout("tcp", address, 2*time.Second)
+	conn, err := net.DialTimeout("tcp", address, runtimeCfg.USBMuxDialTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("无法连接 Windows usbmuxd（%s）：%w。请安装 Apple 设备支持组件、连接并信任 iPhone", address, err)
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(runtimeCfg.USBMuxRequestTimeout))
 
-	payload := []byte(`<?xml version="1.0" encoding="UTF-8"?>` +
-		`<plist version="1.0"><dict>` +
-		`<key>ClientVersionString</key><string>libusbmuxd 1.1.0</string>` +
-		`<key>MessageType</key><string>ListDevices</string>` +
-		`<key>ProgName</key><string>GoPhoneManager</string>` +
-		`<key>kLibUSBMuxVersion</key><integer>3</integer>` +
-		`</dict></plist>`)
+	payload := []byte(fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>`+
+		`<plist version="1.0"><dict>`+
+		`<key>ClientVersionString</key><string>libusbmuxd 1.1.0</string>`+
+		`<key>MessageType</key><string>ListDevices</string>`+
+		`<key>ProgName</key><string>%s</string>`+
+		`<key>kLibUSBMuxVersion</key><integer>3</integer>`+
+		`</dict></plist>`, runtimeCfg.ClientName))
 	packet := make([]byte, 16+len(payload))
 	binary.LittleEndian.PutUint32(packet[0:4], uint32(len(packet)))
 	binary.LittleEndian.PutUint32(packet[4:8], 1)
