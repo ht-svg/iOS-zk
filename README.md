@@ -14,7 +14,7 @@
 - 通过 WDA 原生 MJPEG 实时流投屏并支持点击/拖动操作；WDA 模式请求 60 FPS，实际帧率受设备、WDA 和 USB 链路限制。主控流断开后前端按 1/2/4/8 秒退避重连，最多 5 次
 - 侧边小窗使用服务端生成的 180px 宽 JPEG 缩略图轮询，避免每台设备都传全分辨率 PNG；主控仍使用原始 MJPEG
 - 自动将截图像素坐标换算为 iOS 窗口逻辑坐标，避免高分辨率截图造成点击偏移；窗口尺寸缓存 10 秒，横竖屏切换后自动失效
-- 输入文本、读写设备剪贴板；设备轮询刷新时保留尚未发送的文本
+- 输入文本、读写设备剪贴板；设备轮询刷新时保留尚未发送的文本。文本框按 Enter 直接发送（中文输入法 composing 状态不会误触发），也可点击“回车键”向手机发送 Return 键，群控时同样生效
 - 锁屏、解锁、回到主屏幕、音量、切换横竖屏；Appium 模式下也可尝试重启
 - 读取原项目中已适配的 WhatsApp、微信、短信、抖音、小红书、闲鱼未读数
 
@@ -50,7 +50,7 @@ go build -o 海涛中控v0.1.exe .
 }
 ```
 
-`operation` 支持 `tap`、`swipe`、`type`、`actions`、`clipboard`。响应固定为 HTTP 200（参数错误除外），并返回每台设备的结果：
+`operation` 支持 `tap`、`swipe`、`type`、`actions`、`clipboard`；其中 `actions` 的 `action` 可为 `lock`、`unlock`、`home`、`volumeUp`、`volumeDown`、`reboot`、`orientation`、`enter`。响应固定为 HTTP 200（参数错误除外），并返回每台设备的结果：
 
 ```json
 {

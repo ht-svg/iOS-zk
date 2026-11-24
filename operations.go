@@ -266,7 +266,7 @@ func (s *server) typeDevice(ctx context.Context, udid, sessionID string, input t
 
 func validateActionInput(input actionInput) error {
 	switch input.Action {
-	case "lock", "unlock", "home", "volumeUp", "volumeDown", "reboot":
+	case "lock", "unlock", "home", "volumeUp", "volumeDown", "reboot", "enter":
 		return nil
 	case "orientation":
 		orientation := strings.ToUpper(input.Orientation)
@@ -321,6 +321,20 @@ func (s *server) actionDevice(ctx context.Context, udid, sessionID string, input
 	case "orientation":
 		endpoint = sessionPath(sessionID) + "/orientation"
 		body = map[string]string{"orientation": strings.ToUpper(input.Orientation)}
+	case "enter":
+		endpoint = sessionPath(sessionID) + "/actions"
+		body = map[string]any{
+			"actions": []any{
+				map[string]any{
+					"type": "key",
+					"id":   "keyboard",
+					"actions": []any{
+						map[string]any{"type": "keyDown", "value": "\uE007"},
+						map[string]any{"type": "keyUp", "value": "\uE007"},
+					},
+				},
+			},
+		}
 	}
 	if _, err := s.sessionRequest(ctx, udid, sessionID, http.MethodPost, endpoint, body); err != nil {
 		return err

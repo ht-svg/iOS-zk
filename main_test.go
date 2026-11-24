@@ -529,3 +529,53 @@ func TestStreamRouteUsesMultipartMJPEG(t *testing.T) {
 		t.Fatalf("unexpected stream content type: %q", got)
 	}
 }
+
+func TestActionDeviceSendsEnterKey(t *testing.T) {
+	var payload map[string]any
+	appium := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/session/session-1/actions" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"value": nil})
+	}))
+	defer appium.Close()
+
+	if err := validateActionInput(actionInput{Action: "enter"}); err != nil {
+		t.Fatalf("validateActionInput(enter) = %v", err)
+	}
+
+	s := &server{
+		sessions:    map[string]string{"device-udid": "session-1"},
+		sessionURLs: map[string]string{"device-udid": appium.URL},
+		wdaSessions: map[string]bool{"device-udid": true},
+		httpClient:  appium.Client(),
+	}
+	if err := s.actionDevice(context.Background(), "device-udid", "session-1", actionInput{Action: "enter"}); err != nil {
+		t.Fatalf("actionDevice(enter) = %v", err)
+	}
+
+	actions, ok := payload["actions"].([]any)
+	if !ok || len(actions) != 1 {
+		t.Fatalf("unexpected actions payload: %#v", payload)
+	}
+	keyboard, ok := actions[0].(map[string]any)
+	if !ok || keyboard["type"] != "key" || keyboard["id"] != "keyboard" {
+		t.Fatalf("unexpected keyboard action: %#v", actions[0])
+	}
+	keyActions, ok := keyboard["actions"].([]any)
+	if !ok || len(keyActions) != 2 {
+		t.Fatalf("unexpected key actions: %#v", keyboard["actions"])
+	}
+	keyDown, _ := keyActions[0].(map[string]any)
+	keyUp, _ := keyActions[1].(map[string]any)
+	if keyDown["type"] != "keyDown" || keyDown["value"] != "\uE007" ||
+		keyUp["type"] != "keyUp" || keyUp["value"] != "\uE007" {
+		t.Fatalf("unexpected Enter key actions: %#v", keyActions)
+	}
+}

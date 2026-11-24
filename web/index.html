@@ -72,10 +72,11 @@
     .screen{display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-drag:none}
     .screen-placeholder{color:#aab5c5;text-align:center;padding:24px;font-size:13px}
     .screen-placeholder::before{content:"";display:block;width:42px;height:66px;margin:0 auto 13px;border:2px solid #68778c;border-radius:10px;box-shadow:inset 0 0 0 3px #0c111b}
-    .composer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start}
+    .composer{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:start}
     .composer .section-title,.composer .message{grid-column:1/-1}
     .composer .type-text{grid-column:1;min-height:38px}
     .composer .type{grid-column:2;grid-row:2;min-height:38px}
+    .composer .type-enter{grid-column:3;grid-row:2;min-height:38px}
     .clipboard{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px}
     textarea{min-height:72px;resize:vertical}
     .message{color:#637087;font-size:11px;align-self:center;min-height:15px}
@@ -448,8 +449,9 @@
             <section class="panel-section">
               <div class="section-title">文本输入</div>
               <div class="composer">
-                <input class="type-text" value="${esc(typeInputText.get(d.udid) || "")}" placeholder="先在手机上聚焦文本框，再输入">
+                <input class="type-text" value="${esc(typeInputText.get(d.udid) || "")}" placeholder="先在手机上聚焦文本框，再输入；Enter 发送">
                 <button class="type" ${d.sessionId ? "" : "disabled"}>发送</button>
+                <button class="type-enter secondary" ${d.sessionId ? "" : "disabled"} title="向手机发送回车键，常用于提交输入内容">回车键</button>
                 <span class="message"></span>
               </div>
             </section>
@@ -652,11 +654,19 @@
       }
       field(".portrait").onclick = () => sendAction(card, device, "orientation", "PORTRAIT");
       field(".landscape").onclick = () => sendAction(card, device, "orientation", "LANDSCAPE");
-      field(".type-text").addEventListener("input", event => typeInputText.set(device.udid, event.target.value));
-      field(".type").onclick = () => run(card, async () => {
-        const recipients = await requestToControlledDevices(device, "type", {method:"POST",body:JSON.stringify({text:field(".type-text").value})});
+      const typeField = field(".type-text");
+      typeField.addEventListener("input", event => typeInputText.set(device.udid, event.target.value));
+      const submitText = () => run(card, async () => {
+        const recipients = await requestToControlledDevices(device, "type", {method:"POST",body:JSON.stringify({text:typeField.value})});
         toast(card, recipients.length > 1 ? `文本已同步到 ${recipients.length} 台手机` : "文本已输入");
       });
+      typeField.addEventListener("keydown", event => {
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+        event.preventDefault();
+        submitText();
+      });
+      field(".type").onclick = submitText;
+      field(".type-enter").onclick = () => sendAction(card, device, "enter");
       field(".clipboard-set").onclick = () => run(card, async () => {
         const recipients = await requestToControlledDevices(device, "clipboard", {method:"PUT",body:JSON.stringify({text:field(".clipboard-text").value})});
         toast(card, recipients.length > 1 ? `剪贴板已同步到 ${recipients.length} 台手机` : "剪贴板已写入");
