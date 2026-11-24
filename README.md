@@ -65,7 +65,20 @@ go build -o 海涛中控v0.1.exe .
 }
 ```
 
-`code` 可能是 `session_required`、`session_lost`、`unsupported` 或 `device_error`。前端会对 `session_lost` / `session_required` 的设备触发自动重连。
+所有失败响应（包括普通 HTTP 接口和批量结果）都带同一个 `code` 字段：
+
+| `code` | HTTP 状态 | 含义 |
+|---|---|---|
+| `bad_request` | 400 | 参数或请求体错误 |
+| `session_required` | 409 | 设备尚未建立 Appium/WDA 会话 |
+| `session_lost` | 409 | 会话已失效，本地缓存已清理 |
+| `unsupported` | 501 | 当前模式不支持该操作 |
+| `upstream_error` | 502 | Appium/WDA 上游请求失败 |
+| `device_error` | — | 未能归类的设备操作失败 |
+| `internal_error` | 500 | 服务内部错误 |
+| `service_unavailable` | 503 | 服务不可用 |
+
+前端会对 `session_lost` / `session_required` 的设备触发自动重连，其余错误码按设备名展示，避免把上游失败误判为会话问题。
 
 ## 可配置项
 
@@ -94,7 +107,7 @@ go build -o 海涛中控v0.1.exe .
 
 ## 开发质量门禁
 
-代码已按职责拆分：`main.go`（启动与路由）、`config.go`（配置与设备列表）、`session.go`（会话生命周期）、`api.go`（HTTP 接口）、`operations.go`（设备操作与批量参数处理），另有 `appium.go`、`usbmux.go`、`wda_relay.go`。
+代码已按职责拆分：`main.go`（启动与路由）、`config.go`（配置与设备列表）、`session.go`（会话生命周期）、`api.go`（HTTP 接口）、`operations.go`（设备操作与批量参数处理）、`errors.go`（稳定错误码）、`runtime_config.go`（运行时配置）、`logging.go`（结构化日志），另有 `appium.go`、`usbmux.go`、`wda_relay.go`。
 
 本地检查：
 

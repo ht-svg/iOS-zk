@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-var errSessionLost = errors.New("设备会话已失效，正在重新连接")
-
 type windowSizeEntry struct {
 	width   int
 	height  int
@@ -120,7 +118,7 @@ func (s *server) sessionID(udid string) (string, error) {
 	defer s.mu.RUnlock()
 	id := s.sessions[udid]
 	if id == "" {
-		return "", errors.New("请先为此设备启动 Appium/WDA 会话")
+		return "", errSessionRequired
 	}
 	return id, nil
 }
@@ -209,17 +207,6 @@ func isSessionInvalid(err error) bool {
 		}
 	}
 	return false
-}
-
-func (s *server) writeAPIError(w http.ResponseWriter, status int, err error) {
-	if errors.Is(err, errSessionLost) {
-		writeJSON(w, http.StatusConflict, map[string]string{
-			"error": err.Error(),
-			"code":  "session_lost",
-		})
-		return
-	}
-	writeError(w, status, err)
 }
 
 // reconcileDevices drops sessions and relays for devices that are no longer

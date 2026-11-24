@@ -314,7 +314,7 @@ func (s *server) actionDevice(ctx context.Context, udid, sessionID string, input
 		}
 	case "reboot":
 		if s.isWDASession(udid) {
-			return errors.New("当前 WDA 直连模式不支持重启")
+			return unsupportedError("当前 WDA 直连模式不支持重启")
 		}
 		endpoint = sessionPath(sessionID) + "/execute/sync"
 		body = map[string]any{"script": "mobile: reboot", "args": []any{}}
@@ -455,14 +455,4 @@ func (s *server) performBatchOperation(ctx context.Context, udid, sessionID, ope
 	default:
 		return errors.New("不支持的批量操作")
 	}
-}
-
-func batchErrorCode(err error) string {
-	if errors.Is(err, errSessionLost) {
-		return "session_lost"
-	}
-	if strings.Contains(err.Error(), "WDA 直连模式不支持") {
-		return "unsupported"
-	}
-	return "device_error"
 }

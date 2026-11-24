@@ -250,7 +250,7 @@ func (s *server) handleAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Action == "reboot" && s.isWDASession(udid) {
-		writeError(w, http.StatusNotImplemented, errors.New("当前 WDA 直连模式不支持重启，请使用独立的设备管理工具重启"))
+		writeErrorWithCode(w, http.StatusNotImplemented, CodeUnsupported, errors.New("当前 WDA 直连模式不支持重启，请使用独立的设备管理工具重启"))
 		return
 	}
 	if err := s.actionDevice(r.Context(), udid, sessionID, input); err != nil {
@@ -364,7 +364,7 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 			sessionID, err := s.sessionID(udid)
 			if err != nil {
 				result.Error = err.Error()
-				result.Code = "session_required"
+				result.Code = errorCode(err)
 				results[index] = result
 				return
 			}
@@ -372,7 +372,7 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 			defer cancel()
 			if err := s.performBatchOperation(ctx, udid, sessionID, request.Operation, payload); err != nil {
 				result.Error = err.Error()
-				result.Code = batchErrorCode(err)
+				result.Code = errorCode(err)
 				results[index] = result
 				return
 			}
@@ -402,10 +402,7 @@ func (s *server) sessionOrError(w http.ResponseWriter, r *http.Request) (string,
 	}
 	sessionID, err := s.sessionID(udid)
 	if err != nil {
-		writeJSON(w, http.StatusConflict, map[string]string{
-			"error": err.Error(),
-			"code":  "session_required",
-		})
+		s.writeAPIError(w, http.StatusConflict, err)
 		return "", "", false
 	}
 	return udid, sessionID, true

@@ -383,7 +383,7 @@
         }
       }
       if (failures.length) {
-        const details = failures.map(item => `${item.name || item.udid}：${item.error || "失败"}`).join("；");
+        const details = failures.map(item => `${item.name || item.udid}（${item.code || "error"}）：${item.error || "失败"}`).join("；");
         throw new Error(`成功 ${result.succeeded}/${result.total} 台；失败：${details}`);
       }
       return recipients;

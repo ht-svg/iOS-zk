@@ -176,11 +176,6 @@ func decodeJSON(body io.Reader, target any) error {
 	return nil
 }
 
-func writeError(w http.ResponseWriter, status int, err error) {
-	log.Printf("event=http_error status=%d error=%q", status, chineseError(err))
-	writeJSON(w, status, map[string]string{"error": err.Error()})
-}
-
 func chineseError(err error) string {
 	if err == nil {
 		return "未知错误"

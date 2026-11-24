@@ -52,7 +52,7 @@ func firstNumber(value string) int {
 
 func (s *server) appiumRequest(ctx context.Context, baseURL, method, endpoint string, body any) (map[string]any, error) {
 	if err := validateLocalURL(baseURL); err != nil {
-		return nil, err
+		return nil, upstreamError(err)
 	}
 	target := strings.TrimRight(baseURL, "/") + endpoint
 	var requestBody *strings.Reader
@@ -61,29 +61,29 @@ func (s *server) appiumRequest(ctx context.Context, baseURL, method, endpoint st
 	} else {
 		data, err := json.Marshal(body)
 		if err != nil {
-			return nil, fmt.Errorf("encode Appium request: %w", err)
+			return nil, upstreamError(fmt.Errorf("encode Appium request: %w", err))
 		}
 		requestBody = strings.NewReader(string(data))
 	}
 	request, err := http.NewRequestWithContext(ctx, method, target, requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("create Appium request: %w", err)
+		return nil, upstreamError(fmt.Errorf("create Appium request: %w", err))
 	}
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
 	response, err := s.httpClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("连接 Appium %s 失败: %w", baseURL, err)
+		return nil, upstreamError(fmt.Errorf("连接 Appium %s 失败: %w", baseURL, err))
 	}
 	defer response.Body.Close()
 	var result map[string]any
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 16<<20))
 	if err := decoder.Decode(&result); err != nil {
 		if response.StatusCode < 200 || response.StatusCode >= 300 {
-			return nil, fmt.Errorf("Appium 返回 HTTP %d", response.StatusCode)
+			return nil, upstreamError(fmt.Errorf("Appium 返回 HTTP %d", response.StatusCode))
 		}
-		return nil, fmt.Errorf("解析 Appium 响应失败: %w", err)
+		return nil, upstreamError(fmt.Errorf("解析 Appium 响应失败: %w", err))
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		message := appiumErrorMessage(result)
@@ -93,10 +93,10 @@ func (s *server) appiumRequest(ctx context.Context, baseURL, method, endpoint st
 		if len(message) > 500 {
 			message = message[:500]
 		}
-		return nil, fmt.Errorf("Appium 返回错误: %s", message)
+		return nil, upstreamError(fmt.Errorf("Appium 返回错误: %s", message))
 	}
 	if value, ok := result["value"].(map[string]any); ok && stringValue(value["error"]) != "" {
-		return nil, fmt.Errorf("Appium: %s", appiumErrorMessage(result))
+		return nil, upstreamError(fmt.Errorf("Appium: %s", appiumErrorMessage(result)))
 	}
 	return result, nil
 }
