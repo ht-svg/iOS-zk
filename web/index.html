@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>海涛中控 v0.1</title>
+  <style>
+    :root{font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:#172033;background:#f3f6fb;font-synthesis:none;font-optical-sizing:auto}
+    *{box-sizing:border-box}
+    body{margin:0;min-width:320px;background:#f3f6fb}
+    header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.94);border-bottom:1px solid #e4e9f1;padding:14px clamp(16px,3vw,40px);display:flex;align-items:center;justify-content:space-between;gap:20px;backdrop-filter:blur(12px)}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand-mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#3478f6,#2253c7);display:grid;place-items:center;color:#fff;font-weight:700;font-size:19px;box-shadow:0 5px 12px #245bc633}
+    h1{font-size:19px;letter-spacing:.01em;margin:0}
+    header p{margin:3px 0 0;color:#778196;font-size:12px}
+    .header-actions{display:flex;align-items:center;gap:9px}
+    #all-devices-toggle.active{background:#13845b}
+    #all-devices-toggle.active:hover{background:#0b6d49}
+    main{max-width:1680px;margin:0 auto;padding:24px clamp(16px,3vw,40px) 40px}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;margin:0 0 16px;gap:12px;min-height:36px}
+    #notice{color:#3f4b60;font-size:13px}
+    #last-refresh{color:#8a94a6;font-size:12px;white-space:nowrap}
+    .workspace{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:16px}
+    .workspace.has-devices{grid-template-columns:minmax(0,1fr) 220px}
+    .grid{min-width:0}
+    .card{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:auto auto;grid-template-areas:"head head" "screen side";gap:14px 18px;width:100%;min-height:0;background:#fff;border:1px solid #e3e8f0;border-radius:16px;padding:18px;box-shadow:0 8px 26px #1e293b0a}
+    .device-list{width:100%;min-width:0;background:#fff;border:1px solid #e3e8f0;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 26px #1e293b0a}
+    .device-list[hidden]{display:none}
+    .device-list-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+    .device-list-count{font-size:11px;color:#69758a;background:#f1f4f9;border-radius:20px;padding:4px 8px;white-space:nowrap}
+    .device-list-summary{font-size:11px;color:#8993a5;line-height:1.5}
+    .device-items{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 300px);overflow:auto;padding-right:2px}
+    .device-item{display:flex;flex-direction:column;min-width:0;border:1px solid #e3e8f0;background:#fff;border-radius:12px;cursor:pointer;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+    .device-item:hover{border-color:#9bb8f4;box-shadow:0 4px 12px #1e293b10}
+    .device-item.current{border:2px solid #3478f6}
+    .device-preview{position:relative;aspect-ratio:9/13;background:#101827;display:grid;place-items:center;overflow:hidden}
+    .device-thumb{display:block;width:100%;height:100%;object-fit:contain}
+    .device-thumb-placeholder{color:#c7d0de;text-align:center;padding:8px;font-size:11px}
+    .device-preview-status{position:absolute;left:7px;bottom:7px;padding:4px 7px;border-radius:20px;background:#101827d9;color:#fff;font-size:10px}
+    .device-item-footer{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:9px}
+    .device-item-name{font-size:12px;font-weight:600;overflow-wrap:anywhere}
+    .device-item-meta{font-size:10px;color:#8993a5;overflow-wrap:anywhere;margin-top:3px}
+    .device-item-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+    .device-item-actions button{padding:5px 8px;font-size:10px}
+    .device-master{font-size:10px;color:#3570da;white-space:nowrap}
+    .card-head{grid-area:head;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:0 0 13px;border-bottom:1px solid #edf0f5}
+    .device-heading{min-width:0}
+    .card h2{margin:0 0 4px;font-size:17px;overflow-wrap:anywhere}
+    .meta{font-size:11px;color:#8490a2;overflow-wrap:anywhere}
+    .badge{white-space:normal;border-radius:20px;background:#e8f7f0;color:#12805a;padding:6px 10px;font-size:11px;font-weight:600}
+    .badge.off{background:#f0f2f6;color:#677287}
+    .side-panel{grid-area:side;display:flex;flex-direction:column;gap:14px;min-width:0;align-self:start}
+    .panel-section{background:#f8fafd;border:1px solid #e8edf4;border-radius:12px;padding:12px}
+    .section-title{font-size:12px;font-weight:650;margin:0 0 10px;color:#3b475c}
+    .control-rail{display:flex;flex-direction:column;gap:8px;min-width:0}
+    .connection-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .system-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+    .system-actions button{min-height:36px;padding:6px 4px;font-size:11px}
+    .settings{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+    .settings .appium-url,.settings .save{grid-column:1/-1}
+    input,textarea{width:100%;border:1px solid #dce3ed;border-radius:8px;background:#fff;color:#172033;padding:9px 10px;font:inherit;font-size:12px;outline:none;transition:border-color .15s,box-shadow .15s}
+    input:focus,textarea:focus{border-color:#6c9bf5;box-shadow:0 0 0 3px #3478f61a}
+    button{border:0;border-radius:8px;padding:9px 11px;background:#3478f6;color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s}
+    button:hover{background:#225fdb}
+    button:active{transform:translateY(1px)}
+    button.secondary{background:#eaf1ff;color:#285fc8}
+    button.secondary:hover{background:#dce8ff}
+    button.danger{background:#fff0f0;color:#c44444}
+    button.danger:hover{background:#ffe0e0}
+    button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .screen-wrap{grid-area:screen;position:relative;background:radial-gradient(ellipse at center,#1d2738,#0c111b 72%);border:1px solid #263142;border-radius:12px;overflow:hidden;width:min(100%,calc((100vh - 250px)*9/16));aspect-ratio:9/16;min-height:0;align-self:start;justify-self:center;display:grid;place-items:center}
+    .screen{display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-drag:none}
+    .screen-placeholder{color:#aab5c5;text-align:center;padding:24px;font-size:13px}
+    .screen-placeholder::before{content:"";display:block;width:42px;height:66px;margin:0 auto 13px;border:2px solid #68778c;border-radius:10px;box-shadow:inset 0 0 0 3px #0c111b}
+    .composer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start}
+    .composer .section-title,.composer .message{grid-column:1/-1}
+    .composer .type-text{grid-column:1;min-height:38px}
+    .composer .type{grid-column:2;grid-row:2;min-height:38px}
+    .clipboard{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px}
+    textarea{min-height:72px;resize:vertical}
+    .message{color:#637087;font-size:11px;align-self:center;min-height:15px}
+    .empty{background:#fff;border:1px dashed #cbd5e1;border-radius:12px;padding:32px;color:#778196;text-align:center}
+    .error{color:#bf3e3e!important}
+    @media(max-width:1100px){.workspace.has-devices{grid-template-columns:1fr}.device-items{flex-direction:row;max-height:none;overflow-x:auto;padding-bottom:3px}.device-item{flex:0 0 145px}.device-preview{aspect-ratio:9/11}.device-list-summary{display:none}.card{grid-template-columns:minmax(0,1fr) 290px;grid-template-rows:auto auto}}
+    @media(max-width:760px){header{position:static;align-items:flex-start;padding:12px 16px}.brand-mark{width:34px;height:34px}.header-actions{gap:6px}.header-actions button{padding:8px;font-size:11px}main{padding:18px 12px 28px}.toolbar{margin-bottom:12px}.workspace,.workspace.has-devices{gap:12px}.card{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;grid-template-areas:"head" "screen" "side";padding:12px;gap:12px}.screen-wrap{width:min(100%,calc((100vh - 320px)*9/16))}.device-list{padding:11px}.device-items{gap:8px}.device-item{flex-basis:125px}.device-preview{aspect-ratio:9/10}}
+    @media(max-width:480px){header{flex-wrap:wrap;gap:10px}.brand{gap:8px}.brand-mark{width:32px;height:32px}.header-actions{width:100%}.header-actions button{flex:1}.toolbar{align-items:flex-start}.card-head{align-items:flex-start;flex-direction:column}.meta{font-size:10px}.badge{align-self:flex-start}.system-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.settings{grid-template-columns:1fr}.settings .appium-url,.settings .save{grid-column:auto}.clipboard{grid-template-columns:minmax(0,1fr) auto auto}.composer{grid-template-columns:minmax(0,1fr) auto}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">海</div>
+      <div><h1>海涛中控 v0.1</h1><p>设备管理工作台</p></div>
+    </div>
+    <div class="header-actions">
+      <button id="all-devices-toggle" class="secondary" aria-pressed="false" disabled>控制所有手机</button>
+      <button id="refresh">刷新设备</button>
+    </div>
+  </header>
+  <main>
+    <div class="toolbar">
+      <span id="notice" role="status">正在查找已连接设备…</span>
+      <span id="last-refresh"></span>
+    </div>
+    <div class="workspace">
+      <div id="devices" class="grid"></div>
+      <aside id="device-list" class="device-list" aria-label="设备列表"></aside>
+    </div>
+  </main>
+  <script>
+    const root = document.getElementById("devices");
+    const notice = document.getElementById("notice");
+    const lastRefresh = document.getElementById("last-refresh");
+    const deviceList = document.getElementById("device-list");
+    let devices = [];
+    let selectedUDID = "";
+    const typeInputText = new Map();
+    const streaming = new Set();
+    const previewImages = new Map();
+    const previewRetryAfter = new Map();
+    const streamRetryTimers = new Map();
+    const streamAttempts = new Map();
+    const streamStoppedByUser = new Set();
+    const autoConnectAttempts = new Map();
+    let refreshingDevices = false;
+    let refreshingPreviews = false;
+    let deviceListDrawn = false;
+    let connectingAllDevices = false;
+    let allDevicesControl = false;
+    let sessionRecoveryScheduled = false;
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {"Content-Type":"application/json", ...(options.headers || {})}
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 409) {
+          const match = String(path).match(/^\/api\/devices\/([^/]+)\//);
+          if (match) handleSessionLost(decodeURIComponent(match[1]));
+        }
+        const error = new Error(data.error || `请求失败 (${response.status})`);
+        error.code = data.code || "";
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    async function mapLimit(items, limit, fn) {
+      const results = new Array(items.length);
+      let cursor = 0;
+      const workers = Array.from({length: Math.min(limit, items.length)}, async () => {
+        while (true) {
+          const index = cursor++;
+          if (index >= items.length) return;
+          try {
+            results[index] = {status:"fulfilled", value: await fn(items[index])};
+          } catch (error) {
+            results[index] = {status:"rejected", reason:error};
+          }
+        }
+      });
+      await Promise.all(workers);
+      return results;
+    }
+
+    function esc(value) {
+      return String(value || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+
+    async function refreshDevices() {
+      if (refreshingDevices || connectingAllDevices) return;
+      refreshingDevices = true;
+      notice.textContent = "正在查找已连接设备…";
+      notice.className = "";
+      try {
+        const result = await request("/api/devices");
+        const previousUDIDs = new Set(devices.map(d => d.udid));
+        const old = new Map(devices.map(d => [d.udid, d]));
+        let deviceListChanged = !deviceListDrawn || devices.length !== result.devices.length;
+        const nextDevices = result.devices.map((d, index) => {
+          const previous = old.get(d.udid);
+          const next = {
+            ...d,
+            name: previous?.name ?? d.name,
+            group: previous?.group ?? d.group,
+            appiumUrl: previous?.appiumUrl ?? d.appiumUrl,
+          };
+          if (!previous) {
+            deviceListChanged = true;
+          } else {
+            if (previous.sessionId !== next.sessionId) {
+              streaming.delete(d.udid);
+              previewImages.delete(d.udid);
+              previewRetryAfter.delete(d.udid);
+              clearStreamRetry(d.udid);
+              streamAttempts.delete(d.udid);
+            }
+            if (["connectionType", "name", "group", "appiumUrl", "sessionId", "sessionType"]
+              .some(key => previous[key] !== next[key])) {
+              deviceListChanged = true;
+            }
+            if (devices[index]?.udid !== d.udid) deviceListChanged = true;
+            Object.assign(previous, next);
+            return previous;
+          }
+          return next;
+        });
+        devices = nextDevices;
+        const addedDevices = nextDevices.filter(d => !previousUDIDs.has(d.udid));
+        for (const udid of previewImages.keys()) {
+          if (!devices.some(d => d.udid === udid)) {
+            previewImages.delete(udid);
+            previewRetryAfter.delete(udid);
+            clearStreamRetry(udid);
+            streamAttempts.delete(udid);
+            autoConnectAttempts.delete(udid);
+            streamStoppedByUser.delete(udid);
+          }
+        }
+        const previousSelectedUDID = selectedUDID;
+        if (!devices.some(d => d.udid === selectedUDID)) {
+          selectedUDID = (devices.find(d => d.sessionId) || devices[0] || {}).udid || "";
+        }
+        if (addedDevices.length && !devices.find(d => d.udid === selectedUDID)?.sessionId) {
+          selectedUDID = addedDevices[0].udid;
+        }
+        if (previousSelectedUDID !== selectedUDID) deviceListChanged = true;
+        const allControlWasReset = allDevicesControl && devices.some(d => !d.sessionId);
+        if (allControlWasReset) {
+          allDevicesControl = false;
+        }
+        updateAllDevicesButton();
+        notice.textContent = allControlWasReset
+          ? "设备会话变化，全设备控制已关闭"
+          : devices.length ? `发现 ${devices.length} 台设备` : "尚未发现 iPhone，请检查 USB 连接、驱动与设备信任状态";
+        if (deviceListChanged) drawDevices();
+        lastRefresh.textContent = new Date().toLocaleTimeString();
+        await ensureSelectedDeviceReady();
+        refreshDevicePreviews();
+      } catch (error) {
+        notice.textContent = error.message;
+        notice.className = "error";
+        root.innerHTML = `<div class="empty error">${esc(error.message)}<br><br>请确认设备已通过 USB 连接，并且 Windows usbmuxd 服务可用。</div>`;
+        deviceListDrawn = false;
+      } finally {
+        refreshingDevices = false;
+      }
+    }
+
+    async function ensureSelectedDeviceReady() {
+      if (!devices.length) return;
+      let device = devices.find(d => d.udid === selectedUDID);
+      if (!device) {
+        device = devices.find(d => d.sessionId) || devices[0];
+        selectedUDID = device.udid;
+        drawDevices();
+      }
+      if (device.sessionId) {
+        if (!streaming.has(device.udid) && !streamStoppedByUser.has(device.udid) &&
+            (streamAttempts.get(device.udid) || 0) < 6) {
+          const card = root.querySelector(`[data-udid="${CSS.escape(device.udid)}"]`);
+          if (card) await toggleStream(card, device, true);
+        }
+        return;
+      }
+
+      const now = Date.now();
+      if (now - (autoConnectAttempts.get(device.udid) || 0) < 15000) return;
+      autoConnectAttempts.set(device.udid, now);
+
+      const card = root.querySelector(`[data-udid="${CSS.escape(device.udid)}"]`);
+      if (!card) return;
+      const button = card.querySelector(".connect");
+      if (button) {
+        button.disabled = true;
+        button.textContent = "正在连接并投屏…";
+      }
+      notice.className = "";
+      notice.textContent = `正在自动连接并开启投屏：${device.name || "iPhone"}…`;
+      try {
+        await connectDevice(device);
+        autoConnectAttempts.delete(device.udid);
+        drawDevices();
+        const connectedCard = root.querySelector(`[data-udid="${CSS.escape(device.udid)}"]`);
+        if (connectedCard && !streamStoppedByUser.has(device.udid)) {
+          await toggleStream(connectedCard, device, true);
+        }
+        notice.textContent = `已自动连接并开启投屏：${device.name || "iPhone"}`;
+      } catch (error) {
+        notice.textContent = `自动连接失败：${error.message}`;
+        notice.className = "error";
+        if (card) toast(card, error.message, true);
+      } finally {
+        if (button && button.isConnected) {
+          button.disabled = false;
+          button.textContent = "连接设备";
+        }
+      }
+    }
+
+    async function connectDevice(device) {
+      const result = await request(`/api/devices/${encodeURIComponent(device.udid)}/session`, {method:"POST",body:"{}"});
+      device.sessionId = result.sessionId;
+      device.sessionType = result.sessionType;
+    }
+
+    async function toggleAllDevicesControl() {
+      if (allDevicesControl) {
+        allDevicesControl = false;
+        updateAllDevicesButton();
+        notice.textContent = "已关闭全设备控制，现在只控制当前手机";
+        return;
+      }
+      if (devices.length < 2 || connectingAllDevices) return;
+
+      connectingAllDevices = true;
+      updateAllDevicesButton();
+      const pending = devices.filter(d => !d.sessionId);
+      let completed = 0;
+      try {
+        const results = await mapLimit(pending, 3, async device => {
+          notice.textContent = `正在连接所有手机（${completed + 1}/${pending.length}）：${device.name || "iPhone"}…`;
+          try {
+            await connectDevice(device);
+          } finally {
+            completed++;
+            notice.textContent = `正在连接所有手机（${completed}/${pending.length}）…`;
+          }
+        });
+        const failures = results.flatMap((result, index) => result.status === "rejected"
+          ? [`${pending[index].name || "iPhone"}：${result.reason?.message || result.reason}`]
+          : []);
+        drawDevices();
+        if (failures.length) {
+          allDevicesControl = false;
+          notice.textContent = `无法连接全部手机，全设备控制未开启：${failures.join("；")}`;
+          notice.className = "error";
+          return;
+        }
+        allDevicesControl = true;
+        notice.textContent = `已开启全设备控制（${devices.length} 台）`;
+        notice.className = "";
+      } finally {
+        connectingAllDevices = false;
+        updateAllDevicesButton();
+      }
+    }
+
+    function updateAllDevicesButton() {
+      const button = document.getElementById("all-devices-toggle");
+      button.disabled = devices.length < 2 || connectingAllDevices;
+      button.setAttribute("aria-pressed", String(allDevicesControl));
+      button.classList.toggle("active", allDevicesControl);
+      button.textContent = connectingAllDevices
+        ? "正在连接所有手机…"
+        : allDevicesControl ? "关闭全设备控制" : "控制所有手机";
+    }
+
+    async function requestToControlledDevices(device, endpoint, options) {
+      const recipients = controlledDevices(device);
+      if (!recipients.length) throw new Error("没有可控制的手机");
+      if (recipients.length === 1) {
+        await request(`/api/devices/${encodeURIComponent(recipients[0].udid)}/${endpoint}`, options);
+        return recipients;
+      }
+
+      const payload = typeof options.body === "string" ? JSON.parse(options.body) : (options.body || {});
+      const result = await request("/api/batch", {
+        method: "POST",
+        body: JSON.stringify({
+          udids: recipients.map(target => target.udid),
+          operation: endpoint,
+          body: payload
+        })
+      });
+      const failures = result.results.filter(item => !item.ok);
+      for (const failure of failures) {
+        if (failure.code === "session_lost" || failure.code === "session_required") {
+          handleSessionLost(failure.udid);
+        }
+      }
+      if (failures.length) {
+        const details = failures.map(item => `${item.name || item.udid}：${item.error || "失败"}`).join("；");
+        throw new Error(`成功 ${result.succeeded}/${result.total} 台；失败：${details}`);
+      }
+      return recipients;
+    }
+
+    function controlledDevices(device) {
+      return allDevicesControl ? devices.filter(target => target.sessionId) : [device];
+    }
+
+    function drawDevices() {
+      const activeTypeInput = root.querySelector(".type-text");
+      const preserveTypeFocus = activeTypeInput === document.activeElement &&
+        activeTypeInput.closest(".card")?.dataset.udid === selectedUDID;
+      const selectionStart = preserveTypeFocus ? activeTypeInput.selectionStart : null;
+      const selectionEnd = preserveTypeFocus ? activeTypeInput.selectionEnd : null;
+      if (preserveTypeFocus) typeInputText.set(selectedUDID, activeTypeInput.value);
+      deviceListDrawn = true;
+      drawDeviceList();
+      if (!devices.length) {
+        root.innerHTML = '<div class="empty">连接 iPhone 后点击“刷新设备”。</div>';
+        return;
+      }
+      const selectedDevice = devices.find(d => d.udid === selectedUDID);
+      if (!selectedDevice) {
+        root.innerHTML = '<div class="empty">请选择要控制的 iPhone。</div>';
+        return;
+      }
+      root.innerHTML = devices.filter(d => d.udid === selectedUDID).map(d => `
+        <article class="card" data-udid="${esc(d.udid)}">
+          <div class="card-head">
+            <div class="device-heading">
+              <h2>${esc(d.name || "iPhone")}</h2>
+              <div class="meta">${esc(d.group || "未分组")} · ${esc(d.udid)} · ${esc(d.connectionType || "USB")}</div>
+            </div>
+            <span class="badge ${d.sessionId ? "" : "off"}">${d.sessionId ? `${esc(d.sessionType || "Appium")} 会话已连接` : "未启动会话"}</span>
+          </div>
+          <div class="screen-wrap">
+            <img class="screen" alt="设备屏幕；点击可操作，拖动可滑动" draggable="false" hidden>
+            <div class="screen-placeholder">${d.sessionId ? "点击刷新屏幕获取截图" : "启动会话后可查看和操作屏幕"}</div>
+          </div>
+          <div class="side-panel">
+            <section class="panel-section">
+              <div class="section-title">设备控制</div>
+              <div class="control-rail">
+                <div class="connection-actions">
+                  <button class="connect">${d.sessionId ? "断开会话" : "连接设备"}</button>
+                  <button class="screenshot secondary" ${d.sessionId ? "" : "disabled"}>${streaming.has(d.udid) ? "停止投屏" : "开始投屏"}</button>
+                </div>
+                <div class="system-actions">
+                  <button class="home secondary" ${d.sessionId ? "" : "disabled"}>主屏幕</button>
+                  <button class="lock secondary" ${d.sessionId ? "" : "disabled"}>锁屏</button>
+                  <button class="unlock secondary" ${d.sessionId ? "" : "disabled"}>解锁</button>
+                  <button class="portrait secondary" ${d.sessionId ? "" : "disabled"}>竖屏</button>
+                  <button class="landscape secondary" ${d.sessionId ? "" : "disabled"}>横屏</button>
+                  <button class="messages secondary" ${d.sessionId ? "" : "disabled"}>未读数</button>
+                  <button class="volume-up secondary" ${d.sessionId ? "" : "disabled"}>音量 +</button>
+                  <button class="volume-down secondary" ${d.sessionId ? "" : "disabled"}>音量 −</button>
+                  <button class="reboot danger" ${d.sessionId && d.sessionType !== "WDA" ? "" : "disabled"} title="${d.sessionType === "WDA" ? "WDA 直连模式不支持重启" : ""}">重启</button>
+                </div>
+              </div>
+            </section>
+            <section class="panel-section">
+              <div class="section-title">文本输入</div>
+              <div class="composer">
+                <input class="type-text" value="${esc(typeInputText.get(d.udid) || "")}" placeholder="先在手机上聚焦文本框，再输入">
+                <button class="type" ${d.sessionId ? "" : "disabled"}>发送</button>
+                <span class="message"></span>
+              </div>
+            </section>
+            <section class="panel-section">
+              <div class="section-title">设备信息</div>
+              <div class="settings">
+                <input class="device-name" aria-label="设备名称" value="${esc(d.name)}" placeholder="设备名称">
+                <input class="device-group" aria-label="设备分组" value="${esc(d.group)}" placeholder="分组名称">
+                <input class="appium-url" aria-label="Appium 地址" value="${esc(d.appiumUrl)}" placeholder="http://127.0.0.1:4723">
+                <button class="save secondary">保存设备信息</button>
+              </div>
+            </section>
+            <section class="panel-section">
+              <div class="section-title">剪贴板</div>
+              <div class="clipboard">
+                <textarea class="clipboard-text" placeholder="剪贴板文本"></textarea>
+                <button class="clipboard-set" ${d.sessionId ? "" : "disabled"}>写入</button>
+                <button class="clipboard-get secondary" ${d.sessionId ? "" : "disabled"}>读取</button>
+              </div>
+            </section>
+          </div>
+        </article>`).join("");
+      devices.filter(d => d.udid === selectedUDID).forEach(device => {
+        bindCard(device);
+        const screenButton = root.querySelector(`[data-udid="${CSS.escape(device.udid)}"] .screenshot`);
+        screenButton.textContent = streaming.has(device.udid) ? "停止投屏" : "开始投屏";
+        if (streaming.has(device.udid) && device.sessionId) {
+          const card = root.querySelector(`[data-udid="${CSS.escape(device.udid)}"]`);
+          const img = card.querySelector(".screen");
+          img.src = `/api/devices/${encodeURIComponent(device.udid)}/stream`;
+          img.hidden = false;
+          card.querySelector(".screen-placeholder").hidden = true;
+        }
+      });
+      if (preserveTypeFocus) {
+        const typeInput = root.querySelector(".type-text");
+        if (typeInput) {
+          typeInput.focus({preventScroll:true});
+          typeInput.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
+    }
+
+    function drawDeviceList() {
+      const connectedCount = devices.filter(d => d.sessionId).length;
+      const otherDevices = devices.filter(d => d.udid !== selectedUDID);
+      deviceList.hidden = devices.length < 2;
+      deviceList.parentElement.classList.toggle("has-devices", devices.length > 1);
+      deviceList.innerHTML = `
+        <div class="device-list-head"><strong>设备列表</strong><span class="device-list-count">${connectedCount}/${devices.length} 已连接</span></div>
+        <div class="device-list-summary">点击小窗切换大屏主控；开启“控制所有手机”可同步操作。</div>
+        <div class="device-items">${otherDevices.length ? otherDevices.map(d => `
+          <div class="device-item ${d.udid === selectedUDID ? "current" : ""}" data-udid="${esc(d.udid)}" role="button" tabindex="0" aria-label="切换到 ${esc(d.name || "iPhone")}">
+            <div class="device-preview">
+              ${d.sessionId
+                ? `<img class="device-thumb" data-udid="${esc(d.udid)}" alt="${esc(d.name || "iPhone")} 屏幕预览">`
+                : '<div class="device-thumb-placeholder">未连接</div>'}
+              <span class="device-preview-status">${d.udid === selectedUDID ? "主控" : d.sessionId ? "已连接" : "未连接"}</span>
+            </div>
+            <div class="device-item-footer">
+              <div>
+                <div class="device-item-name">${esc(d.name || "iPhone")}</div>
+                <div class="device-item-meta">${esc(d.connectionType || "USB")}</div>
+              </div>
+              <div class="device-item-actions">
+                ${d.udid === selectedUDID
+                  ? '<span class="device-master">主控</span>'
+                  : d.sessionId
+                    ? '<span class="device-master">点击切换</span>'
+                    : `<button class="connect-target secondary" data-udid="${esc(d.udid)}">连接</button>`}
+              </div>
+            </div>
+          </div>`).join("")
+          : '<div class="empty">当前主控已显示在大屏</div>'}</div>`;
+
+      deviceList.querySelectorAll(".device-thumb").forEach(img => {
+        const preview = previewImages.get(img.dataset.udid);
+        if (preview) img.src = preview;
+      });
+      deviceList.querySelectorAll(".device-item").forEach(item => {
+        const select = () => selectDevice(item.dataset.udid);
+        item.addEventListener("click", event => {
+          if (event.target.closest("button,label,input")) return;
+          select();
+        });
+        item.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            select();
+          }
+        });
+      });
+      deviceList.querySelectorAll(".connect-target").forEach(button => {
+        button.addEventListener("click", async () => {
+          const target = devices.find(d => d.udid === button.dataset.udid);
+          const card = root.querySelector(`[data-udid="${CSS.escape(selectedUDID)}"]`);
+          if (!target || !card) return;
+          button.disabled = true;
+          await run(card, async () => {
+            await connectDevice(target);
+            drawDevices();
+          });
+          if (button.isConnected) button.disabled = false;
+        });
+      });
+    }
+
+    function selectDevice(udid) {
+      if (udid === selectedUDID) return;
+      selectedUDID = udid;
+      drawDevices();
+      const device = devices.find(d => d.udid === udid);
+      if (!device) return;
+      if (!device.sessionId) {
+        notice.textContent = `已切换到 ${device.name || "iPhone"}，正在连接…`;
+        ensureSelectedDeviceReady();
+        return;
+      }
+      notice.textContent = `已切换到 ${device.name || "iPhone"}`;
+      refreshDevicePreviews();
+      if (!streaming.has(udid)) {
+        const card = root.querySelector(`[data-udid="${CSS.escape(udid)}"]`);
+        if (card) toggleStream(card, device);
+      }
+    }
+
+    async function refreshDevicePreviews() {
+      if (refreshingPreviews || connectingAllDevices) return;
+      refreshingPreviews = true;
+      const now = Date.now();
+      const connected = devices.filter(d => d.sessionId && d.udid !== selectedUDID && (previewRetryAfter.get(d.udid) || 0) <= now);
+      try {
+        const results = await Promise.allSettled(connected.map(async device => {
+          const result = await request(`/api/devices/${encodeURIComponent(device.udid)}/screenshot?preview=1`);
+          const image = `data:${result.mime || "image/png"};base64,${result.image}`;
+          previewImages.set(device.udid, image);
+          previewRetryAfter.delete(device.udid);
+          const img = deviceList.querySelector(`.device-thumb[data-udid="${CSS.escape(device.udid)}"]`);
+          if (img) img.src = image;
+          const status = deviceList.querySelector(`.device-item[data-udid="${CSS.escape(device.udid)}"] .device-preview-status`);
+          if (status) {
+            status.textContent = device.udid === selectedUDID ? "主控" : "已连接";
+            status.title = "";
+          }
+        }));
+        results.forEach((result, index) => {
+          if (result.status !== "rejected") return;
+          const device = connected[index];
+          previewRetryAfter.set(device.udid, Date.now() + 15000);
+          const status = deviceList.querySelector(`.device-item[data-udid="${CSS.escape(device.udid)}"] .device-preview-status`);
+          if (status) {
+            status.textContent = "预览失败";
+            status.title = result.reason?.message || String(result.reason);
+          }
+        });
+      } finally {
+        refreshingPreviews = false;
+      }
+    }
+
+    function bindCard(device) {
+      const card = root.querySelector(`[data-udid="${CSS.escape(device.udid)}"]`);
+      const field = selector => card.querySelector(selector);
+      field(".device-name").addEventListener("input", e => device.name = e.target.value);
+      field(".device-group").addEventListener("input", e => device.group = e.target.value);
+      field(".appium-url").addEventListener("input", e => device.appiumUrl = e.target.value);
+      field(".save").onclick = () => run(card, async () => {
+        await request(`/api/devices/${encodeURIComponent(device.udid)}/settings`, {method:"POST",body:JSON.stringify({name:device.name,group:device.group,appiumUrl:device.appiumUrl})});
+        toast(card, "配置已保存");
+      });
+      field(".connect").onclick = () => run(card, async () => {
+        if (device.sessionId) {
+          if (allDevicesControl) {
+            allDevicesControl = false;
+            updateAllDevicesButton();
+            notice.textContent = "设备断开，全设备控制已关闭";
+          }
+          await request(`/api/devices/${encodeURIComponent(device.udid)}/session`, {method:"DELETE"});
+          device.sessionId = "";
+        } else {
+          await connectDevice(device);
+        }
+        drawDevices();
+      });
+      field(".screenshot").onclick = () => toggleStream(card, device);
+      field(".messages").onclick = () => run(card, async () => {
+        const result = await request(`/api/devices/${encodeURIComponent(device.udid)}/messages`);
+        toast(card, result.app ? `${result.app} 未读：${result.unread}` : `未读：${result.unread}`);
+      });
+      for (const [action, selector] of [["lock","lock"],["unlock","unlock"],["home","home"],["reboot","reboot"],["volumeUp","volume-up"],["volumeDown","volume-down"]]) {
+        field(`.${selector}`).onclick = () => run(card, async () => {
+          const targets = controlledDevices(device);
+          const confirmation = targets.length
+            ? `确认同时重启 ${targets.length} 台手机？`
+            : "确认重启这台 iPhone？";
+          if (action === "reboot" && !confirm(confirmation)) return;
+          const recipients = await requestToControlledDevices(device, "actions", {method:"POST",body:JSON.stringify({action})});
+          toast(card, recipients.length > 1 ? `操作已同步到 ${recipients.length - 1} 台手机` : "操作已发送");
+        });
+      }
+      field(".portrait").onclick = () => sendAction(card, device, "orientation", "PORTRAIT");
+      field(".landscape").onclick = () => sendAction(card, device, "orientation", "LANDSCAPE");
+      field(".type-text").addEventListener("input", event => typeInputText.set(device.udid, event.target.value));
+      field(".type").onclick = () => run(card, async () => {
+        const recipients = await requestToControlledDevices(device, "type", {method:"POST",body:JSON.stringify({text:field(".type-text").value})});
+        toast(card, recipients.length > 1 ? `文本已同步到 ${recipients.length} 台手机` : "文本已输入");
+      });
+      field(".clipboard-set").onclick = () => run(card, async () => {
+        const recipients = await requestToControlledDevices(device, "clipboard", {method:"PUT",body:JSON.stringify({text:field(".clipboard-text").value})});
+        toast(card, recipients.length > 1 ? `剪贴板已同步到 ${recipients.length} 台手机` : "剪贴板已写入");
+      });
+      field(".clipboard-get").onclick = () => run(card, async () => {
+        const result = await request(`/api/devices/${encodeURIComponent(device.udid)}/clipboard`);
+        field(".clipboard-text").value = result.value || "";
+        toast(card, "已读取手机剪贴板");
+      });
+      bindScreen(card, device);
+    }
+
+    async function sendAction(card, device, action, orientation) {
+      await run(card, async () => {
+        const recipients = await requestToControlledDevices(device, "actions", {method:"POST",body:JSON.stringify({action,orientation})});
+        toast(card, recipients.length > 1 ? `操作已同步到 ${recipients.length} 台手机` : "操作已发送");
+      });
+    }
+
+    function clearStreamRetry(udid) {
+      const timer = streamRetryTimers.get(udid);
+      if (timer) clearTimeout(timer);
+      streamRetryTimers.delete(udid);
+    }
+
+    function scheduleStreamRetry(card, device) {
+      if (!device.sessionId || streamStoppedByUser.has(device.udid) || streamRetryTimers.has(device.udid)) return;
+      const attempts = (streamAttempts.get(device.udid) || 0) + 1;
+      streamAttempts.set(device.udid, attempts);
+      if (attempts > 5) {
+        toast(card, "投屏多次重连失败，请检查设备后重新连接", true);
+        return;
+      }
+      const delay = Math.min(1000 * 2 ** (attempts - 1), 8000);
+      const timer = setTimeout(() => {
+        streamRetryTimers.delete(device.udid);
+        if (!device.sessionId || streamStoppedByUser.has(device.udid) || streaming.has(device.udid)) return;
+        const current = root.querySelector(`[data-udid="${CSS.escape(device.udid)}"]`);
+        if (current) toggleStream(current, device, true);
+      }, delay);
+      streamRetryTimers.set(device.udid, timer);
+    }
+
+    function handleSessionLost(udid) {
+      const device = devices.find(d => d.udid === udid);
+      if (device) {
+        device.sessionId = "";
+        device.sessionType = "";
+      }
+      streaming.delete(udid);
+      clearStreamRetry(udid);
+      streamAttempts.delete(udid);
+      if (sessionRecoveryScheduled) return;
+      sessionRecoveryScheduled = true;
+      notice.className = "";
+      notice.textContent = "设备会话已失效，正在重新连接…";
+      setTimeout(() => {
+        sessionRecoveryScheduled = false;
+        if (refreshingDevices) {
+          setTimeout(refreshDevices, 1000);
+          return;
+        }
+        refreshDevices();
+      }, 1200);
+    }
+
+    async function updateScreenshot(card, device) {
+      const img = card.querySelector(".screen");
+      img.src = `/api/devices/${encodeURIComponent(device.udid)}/stream?ts=${Date.now()}`;
+      img.hidden = false;
+      card.querySelector(".screen-placeholder").hidden = true;
+    }
+
+    async function toggleStream(card, device, auto = false) {
+      await run(card, async () => {
+        if (streaming.has(device.udid)) {
+          streaming.delete(device.udid);
+          streamStoppedByUser.add(device.udid);
+          clearStreamRetry(device.udid);
+          streamAttempts.delete(device.udid);
+          card.querySelector(".screen").src = "";
+          card.querySelector(".screen").hidden = true;
+          card.querySelector(".screen-placeholder").hidden = false;
+          card.querySelector(".screenshot").textContent = "开始投屏";
+          toast(card, "实时画面已停止");
+          return;
+        }
+        streamStoppedByUser.delete(device.udid);
+        clearStreamRetry(device.udid);
+        if (!auto) streamAttempts.delete(device.udid);
+        await updateScreenshot(card, device);
+        streaming.add(device.udid);
+        card.querySelector(".screenshot").textContent = "停止投屏";
+        toast(card, "实时 MJPEG 视频流已开启");
+      });
+    }
+
+    function bindScreen(card, device) {
+      const img = card.querySelector(".screen");
+      img.addEventListener("dragstart", e => e.preventDefault());
+      img.addEventListener("selectstart", e => e.preventDefault());
+      img.addEventListener("load", () => streamAttempts.delete(device.udid));
+      img.addEventListener("error", () => {
+        if (!streaming.has(device.udid)) return;
+        streaming.delete(device.udid);
+        img.hidden = true;
+        const placeholder = card.querySelector(".screen-placeholder");
+        if (placeholder) {
+          placeholder.hidden = false;
+          placeholder.textContent = "投屏已断开，正在重试…";
+        }
+        const button = card.querySelector(".screenshot");
+        if (button) button.textContent = "开始投屏";
+        scheduleStreamRetry(card, device);
+        setTimeout(refreshDevices, 1500);
+      });
+      let start;
+      img.addEventListener("pointerdown", e => {
+        if (e.button !== 0) return;
+        if (img.hidden || !img.naturalWidth) return;
+        e.preventDefault();
+        img.setPointerCapture(e.pointerId);
+        const rect = img.getBoundingClientRect();
+        start = {x:e.clientX,y:e.clientY,px:(e.clientX-rect.left)*img.naturalWidth/rect.width,py:(e.clientY-rect.top)*img.naturalHeight/rect.height,imageWidth:img.naturalWidth,imageHeight:img.naturalHeight};
+      });
+      img.addEventListener("pointerup", e => {
+        if (e.button !== 0) return;
+        if (!start) return;
+        const rect = img.getBoundingClientRect();
+        const end = {x:(e.clientX-rect.left)*img.naturalWidth/rect.width,y:(e.clientY-rect.top)*img.naturalHeight/rect.height};
+        const delta = Math.abs(e.clientX-start.x)+Math.abs(e.clientY-start.y);
+        if (delta < 10) {
+          run(card, () => requestToControlledDevices(device, "tap", {method:"POST",body:JSON.stringify({x:Math.round(start.px),y:Math.round(start.py),imageWidth:start.imageWidth,imageHeight:start.imageHeight})}));
+        } else {
+          run(card, () => requestToControlledDevices(device, "swipe", {method:"POST",body:JSON.stringify({x1:Math.round(start.px),y1:Math.round(start.py),x2:Math.round(end.x),y2:Math.round(end.y),imageWidth:start.imageWidth,imageHeight:start.imageHeight,durationMs:500})}));
+        }
+        start = null;
+      });
+      img.addEventListener("pointercancel", () => start = null);
+      img.addEventListener("contextmenu", e => {
+        e.preventDefault();
+        start = null;
+        run(card, async () => {
+          const recipients = await requestToControlledDevices(device, "actions", {method:"POST",body:JSON.stringify({action:"home"})});
+          toast(card, recipients.length > 1 ? `已同步返回主屏幕：${recipients.length} 台手机` : "已返回主屏幕");
+        });
+      });
+    }
+
+    async function run(card, callback) {
+      const buttons = [...card.querySelectorAll("button")];
+      buttons.forEach(button => button.disabled = true);
+      try { await callback(); }
+      catch (error) { toast(card, error.message, true); }
+      finally {
+        buttons.forEach(button => button.disabled = false);
+        const connected = card.querySelector(".badge").textContent.includes("已连接");
+        card.querySelectorAll(".screenshot,.messages,.lock,.unlock,.home,.reboot,.portrait,.landscape,.volume-up,.volume-down,.type,.clipboard-set,.clipboard-get").forEach(button => button.disabled = !connected);
+        if (connected && card.querySelector(".badge").textContent.startsWith("WDA")) card.querySelector(".reboot").disabled = true;
+      }
+    }
+
+    function toast(card, message, error = false) {
+      const node = card.querySelector(".message");
+      node.textContent = message;
+      node.className = `message${error ? " error" : ""}`;
+      setTimeout(() => { if (node.textContent === message) node.textContent = ""; }, 5000);
+    }
+
+    document.getElementById("all-devices-toggle").onclick = toggleAllDevicesControl;
+    updateAllDevicesButton();
+    document.getElementById("refresh").onclick = refreshDevices;
+    refreshDevices();
+    setInterval(refreshDevices, 10000);
+    setInterval(refreshDevicePreviews, 3000);
+  </script>
+</body>
+</html>
