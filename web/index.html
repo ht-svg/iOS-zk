@@ -14,8 +14,8 @@
     h1{font-size:19px;letter-spacing:.01em;margin:0}
     header p{margin:3px 0 0;color:#778196;font-size:12px}
     .header-actions{display:flex;align-items:center;gap:9px}
-    #all-devices-toggle.active{background:#13845b}
-    #all-devices-toggle.active:hover{background:#0b6d49}
+    #all-devices-toggle.active,#preview-live-toggle.active{background:#13845b}
+    #all-devices-toggle.active:hover,#preview-live-toggle.active:hover{background:#0b6d49}
     main{max-width:1680px;margin:0 auto;padding:24px clamp(16px,3vw,40px) 40px}
     .toolbar{display:flex;align-items:center;justify-content:space-between;margin:0 0 16px;gap:12px;min-height:36px}
     #notice{color:#3f4b60;font-size:13px}
@@ -36,7 +36,9 @@
     .device-preview{position:relative;aspect-ratio:9/13;background:#101827;display:grid;place-items:center;overflow:hidden}
     .device-thumb{display:block;width:100%;height:100%;object-fit:contain}
     .device-thumb-placeholder{color:#c7d0de;text-align:center;padding:8px;font-size:11px}
-    .device-preview-status{position:absolute;left:7px;bottom:7px;padding:4px 7px;border-radius:20px;background:#101827d9;color:#fff;font-size:10px}
+    .device-preview-status{position:absolute;left:7px;bottom:7px;padding:4px 7px;border-radius:20px;background:#101827d9;color:#fff;font-size:10px;display:flex;align-items:center;gap:4px}
+    .device-preview-status.live::before{content:"";width:5px;height:5px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px #4ade8033;animation:preview-pulse 1.4s ease-in-out infinite}
+    @keyframes preview-pulse{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
     .device-item-footer{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:9px}
     .device-item-name{font-size:12px;font-weight:600;overflow-wrap:anywhere}
     .device-item-meta{font-size:10px;color:#8993a5;overflow-wrap:anywhere;margin-top:3px}
@@ -95,6 +97,7 @@
     </div>
     <div class="header-actions">
       <button id="all-devices-toggle" class="secondary" aria-pressed="false" disabled>控制所有手机</button>
+      <button id="preview-live-toggle" class="secondary active" aria-pressed="true">小窗实时预览</button>
       <button id="refresh">刷新设备</button>
     </div>
   </header>
@@ -119,12 +122,17 @@
     const streaming = new Set();
     const previewImages = new Map();
     const previewRetryAfter = new Map();
+    const previewRefreshedAt = new Map();
+    const previewInFlight = new Set();
+    const previewToggle = document.getElementById("preview-live-toggle");
+    const PREVIEW_REFRESH_MS = 1500;
+    const PREVIEW_TIMEOUT_MS = 8000;
+    let previewLiveEnabled = true;
     const streamRetryTimers = new Map();
     const streamAttempts = new Map();
     const streamStoppedByUser = new Set();
     const autoConnectAttempts = new Map();
     let refreshingDevices = false;
-    let refreshingPreviews = false;
     let deviceListDrawn = false;
     let connectingAllDevices = false;
     let allDevicesControl = false;
@@ -196,6 +204,8 @@
               streaming.delete(d.udid);
               previewImages.delete(d.udid);
               previewRetryAfter.delete(d.udid);
+              previewRefreshedAt.delete(d.udid);
+              previewInFlight.delete(d.udid);
               clearStreamRetry(d.udid);
               streamAttempts.delete(d.udid);
             }
@@ -215,6 +225,8 @@
           if (!devices.some(d => d.udid === udid)) {
             previewImages.delete(udid);
             previewRetryAfter.delete(udid);
+            previewRefreshedAt.delete(udid);
+            previewInFlight.delete(udid);
             clearStreamRetry(udid);
             streamAttempts.delete(udid);
             autoConnectAttempts.delete(udid);
@@ -509,7 +521,7 @@
               ${d.sessionId
                 ? `<img class="device-thumb" data-udid="${esc(d.udid)}" alt="${esc(d.name || "iPhone")} 屏幕预览">`
                 : '<div class="device-thumb-placeholder">未连接</div>'}
-              <span class="device-preview-status">${d.udid === selectedUDID ? "主控" : d.sessionId ? "已连接" : "未连接"}</span>
+              <span class="device-preview-status ${previewLiveEnabled && d.sessionId && d.udid !== selectedUDID && (previewRetryAfter.get(d.udid) || 0) <= Date.now() && previewImages.has(d.udid) ? "live" : ""}">${d.udid === selectedUDID ? "主控" : !d.sessionId ? "未连接" : !previewLiveEnabled ? "已暂停" : (previewRetryAfter.get(d.udid) || 0) > Date.now() ? "预览失败" : previewImages.has(d.udid) ? "实时" : "已连接"}</span>
             </div>
             <div class="device-item-footer">
               <div>
@@ -578,38 +590,64 @@
       }
     }
 
-    async function refreshDevicePreviews() {
-      if (refreshingPreviews || connectingAllDevices) return;
-      refreshingPreviews = true;
+    function refreshDevicePreviews() {
+      if (!previewLiveEnabled || connectingAllDevices || document.hidden) return;
       const now = Date.now();
-      const connected = devices.filter(d => d.sessionId && d.udid !== selectedUDID && (previewRetryAfter.get(d.udid) || 0) <= now);
+      devices.forEach(device => {
+        if (!device.sessionId || device.udid === selectedUDID) return;
+        if ((previewRetryAfter.get(device.udid) || 0) > now || previewInFlight.has(device.udid)) return;
+        previewInFlight.add(device.udid);
+        refreshSinglePreview(device, now).finally(() => previewInFlight.delete(device.udid));
+      });
+    }
+
+    async function refreshSinglePreview(device, now) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), PREVIEW_TIMEOUT_MS);
       try {
-        const results = await Promise.allSettled(connected.map(async device => {
-          const result = await request(`/api/devices/${encodeURIComponent(device.udid)}/screenshot?preview=1`);
-          const image = `data:${result.mime || "image/png"};base64,${result.image}`;
-          previewImages.set(device.udid, image);
-          previewRetryAfter.delete(device.udid);
-          const img = deviceList.querySelector(`.device-thumb[data-udid="${CSS.escape(device.udid)}"]`);
-          if (img) img.src = image;
-          const status = deviceList.querySelector(`.device-item[data-udid="${CSS.escape(device.udid)}"] .device-preview-status`);
-          if (status) {
-            status.textContent = device.udid === selectedUDID ? "主控" : "已连接";
-            status.title = "";
-          }
-        }));
-        results.forEach((result, index) => {
-          if (result.status !== "rejected") return;
-          const device = connected[index];
-          previewRetryAfter.set(device.udid, Date.now() + 15000);
-          const status = deviceList.querySelector(`.device-item[data-udid="${CSS.escape(device.udid)}"] .device-preview-status`);
-          if (status) {
-            status.textContent = "预览失败";
-            status.title = result.reason?.message || String(result.reason);
-          }
-        });
+        const result = await request(
+          `/api/devices/${encodeURIComponent(device.udid)}/screenshot?preview=1&ts=${now}`,
+          {signal: controller.signal}
+        );
+        const image = `data:${result.mime || "image/png"};base64,${result.image}`;
+        previewImages.set(device.udid, image);
+        previewRetryAfter.delete(device.udid);
+        const refreshedAt = Date.now();
+        previewRefreshedAt.set(device.udid, refreshedAt);
+        const img = deviceList.querySelector(`.device-thumb[data-udid="${CSS.escape(device.udid)}"]`);
+        if (img) img.src = image;
+        const status = deviceList.querySelector(`.device-item[data-udid="${CSS.escape(device.udid)}"] .device-preview-status`);
+        if (status) {
+          status.textContent = "实时";
+          status.classList.add("live");
+          status.title = `最后刷新 ${new Date(refreshedAt).toLocaleTimeString()}`;
+        }
+      } catch (error) {
+        previewRetryAfter.set(device.udid, Date.now() + 15000);
+        const status = deviceList.querySelector(`.device-item[data-udid="${CSS.escape(device.udid)}"] .device-preview-status`);
+        if (status) {
+          status.classList.remove("live");
+          status.textContent = error?.name === "AbortError" ? "预览超时" : "预览失败";
+          status.title = error?.message || String(error);
+        }
       } finally {
-        refreshingPreviews = false;
+        clearTimeout(timeout);
       }
+    }
+
+    function updatePreviewToggle() {
+      previewToggle.textContent = previewLiveEnabled ? "小窗实时预览" : "小窗预览已暂停";
+      previewToggle.classList.toggle("active", previewLiveEnabled);
+      previewToggle.setAttribute("aria-pressed", String(previewLiveEnabled));
+      if (previewLiveEnabled) {
+        refreshDevicePreviews();
+        return;
+      }
+      deviceList.querySelectorAll(".device-preview-status").forEach(status => {
+        status.classList.remove("live");
+        if (status.textContent !== "主控") status.textContent = "已暂停";
+        status.title = "小窗实时预览已暂停";
+      });
     }
 
     function bindCard(device) {
@@ -838,10 +876,17 @@
 
     document.getElementById("all-devices-toggle").onclick = toggleAllDevicesControl;
     updateAllDevicesButton();
+    previewToggle.onclick = () => {
+      previewLiveEnabled = !previewLiveEnabled;
+      updatePreviewToggle();
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && previewLiveEnabled) refreshDevicePreviews();
+    });
     document.getElementById("refresh").onclick = refreshDevices;
     refreshDevices();
     setInterval(refreshDevices, 10000);
-    setInterval(refreshDevicePreviews, 3000);
+    setInterval(refreshDevicePreviews, PREVIEW_REFRESH_MS);
   </script>
 </body>
 </html>
