@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 | 授权码管理</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login">
+<div id="container">
+  <div id="header">
+    <div id="branding"><h1>授权码管理</h1></div>
+  </div>
+  <div class="module">
+    {{if .Locked}}<div class="errlist">登录失败次数过多，请 15 分钟后再试。</div>
+    {{else if .Error}}<div class="errlist">请输入正确的用户名和密码。</div>{{end}}
+    <form method="post" action="/admin/login/">
+      <input type="hidden" name="next" value="{{.Next}}">
+      <div class="form-row">
+        <label for="id_username">用户名：</label>
+        <input type="text" name="username" id="id_username" autofocus autocomplete="username" required>
+      </div>
+      <div class="form-row">
+        <label for="id_password">密码：</label>
+        <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+      </div>
+      <div class="submit-row">
+        <button class="button" type="submit">登录</button>
+      </div>
+    </form>
+  </div>
+  <p class="footnote">授权码由设备 UDID 派生，仅管理员可生成</p>
+</div>
+</body>
+</html>

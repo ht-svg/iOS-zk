@@ -89,7 +89,10 @@ type batchResponse struct {
 
 // encodeAppiumFrame converts an Appium/WDA screenshot into the JPEG frame
 // used by the multipart fallback stream.
-func encodeAppiumFrame(encoded string) ([]byte, error) {
+// encodeAppiumFrame re-encodes an Appium screenshot for the MJPEG stream.
+// quality and scale come from the "画面与帧率" settings; scale shrinks the
+// frame before encoding, which is what actually lowers USB/WiFi bandwidth.
+func encodeAppiumFrame(encoded string, quality, scale int) ([]byte, error) {
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
 		return nil, fmt.Errorf("截图数据格式无效: %w", err)
@@ -98,8 +101,18 @@ func encodeAppiumFrame(encoded string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("无法识别截图格式: %w", err)
 	}
+	if scale > 0 && scale < 100 {
+		width := img.Bounds().Dx() * scale / 100
+		if width < 1 {
+			width = 1
+		}
+		img = resizeToWidth(img, width)
+	}
+	if quality <= 0 || quality > 100 {
+		quality = 72
+	}
 	var frame bytes.Buffer
-	if err := jpeg.Encode(&frame, img, &jpeg.Options{Quality: 72}); err != nil {
+	if err := jpeg.Encode(&frame, img, &jpeg.Options{Quality: quality}); err != nil {
 		return nil, fmt.Errorf("JPEG 编码失败: %w", err)
 	}
 	return frame.Bytes(), nil

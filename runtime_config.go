@@ -29,6 +29,8 @@ type runtimeConfig struct {
 	ConfigDirName        string
 	ConfigFileName       string
 	ClientName           string
+	LicenseTablePath     string
+	LicenseBackupPath    string
 }
 
 const runtimeEnvPrefix = "GO_PHONE_MANAGER_"
@@ -50,12 +52,14 @@ func loadRuntimeConfig() runtimeConfig {
 		WindowSizeTTL:        envSeconds("WINDOW_SIZE_TTL", 10, 1, 3600),
 		BatchTotalTimeout:    envSeconds("BATCH_TOTAL_TIMEOUT", 60, 1, 3600),
 		BatchDeviceTimeout:   envSeconds("BATCH_DEVICE_TIMEOUT", 30, 1, 3600),
-		BatchConcurrency:     envInt("BATCH_CONCURRENCY", 8, 1, 64),
+		BatchConcurrency:     envInt("BATCH_CONCURRENCY", 50, 1, 64),
 		MaxBatchDevices:      envInt("MAX_BATCH_DEVICES", 128, 1, 1024),
 		AppiumStreamFPS:      envInt("APPIUM_STREAM_FPS", 15, 1, 60),
 		ConfigDirName:        envString("CONFIG_DIR", "GoPhoneManager"),
 		ConfigFileName:       envString("CONFIG_FILE", "config.json"),
 		ClientName:           envString("CLIENT_NAME", "GoPhoneManager"),
+		LicenseTablePath:     envString("LICENSE_TABLE", ""),
+		LicenseBackupPath:    envString("LICENSE_BACKUP", ""),
 	}
 	if cfg.WDAPort == cfg.WDAStreamPort {
 		if cfg.WDAStreamPort < 65535 {

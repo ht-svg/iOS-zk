@@ -11,9 +11,11 @@ import (
 )
 
 type Config struct {
-	AppiumURLs map[string]string `json:"appiumUrls"`
-	Names      map[string]string `json:"names"`
-	Groups     map[string]string `json:"groups"`
+	AppiumURLs    map[string]string `json:"appiumUrls"`
+	Names         map[string]string `json:"names"`
+	Groups        map[string]string `json:"groups"`
+	LicenseServer string            `json:"licenseServer,omitempty"`
+	LicenseToken  string            `json:"licenseToken,omitempty"`
 }
 
 type Device struct {
@@ -24,6 +26,9 @@ type Device struct {
 	AppiumURL      string `json:"appiumUrl"`
 	SessionID      string `json:"sessionId,omitempty"`
 	SessionType    string `json:"sessionType,omitempty"`
+	Authorized     bool   `json:"authorized"`
+	LicenseCode    string `json:"licenseCode,omitempty"`
+	LicenseReason  string `json:"licenseReason,omitempty"`
 }
 
 func defaultConfigPath() (string, error) {
@@ -43,7 +48,11 @@ func defaultConfigPath() (string, error) {
 }
 
 func loadConfig(path string) (Config, error) {
-	cfg := Config{AppiumURLs: make(map[string]string), Names: make(map[string]string), Groups: make(map[string]string)}
+	cfg := Config{
+		AppiumURLs: make(map[string]string),
+		Names:      make(map[string]string),
+		Groups:     make(map[string]string),
+	}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return cfg, nil
@@ -62,6 +71,17 @@ func loadConfig(path string) (Config, error) {
 	}
 	if cfg.Groups == nil {
 		cfg.Groups = make(map[string]string)
+	}
+	// The old UDID-derived licence map is obsolete. Strip it so it cannot leak
+	// stale authorisation data or confuse support.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err == nil {
+		if _, stale := raw["licenses"]; stale {
+			delete(raw, "licenses")
+			if cleaned, err := json.MarshalIndent(raw, "", "  "); err == nil {
+				_ = os.WriteFile(path, cleaned, 0600)
+			}
+		}
 	}
 	return cfg, nil
 }
@@ -102,6 +122,7 @@ func (s *server) handleDevices(w http.ResponseWriter, r *http.Request) {
 		if appiumURL == "" {
 			appiumURL = runtimeCfg.DefaultAppiumURL
 		}
+		licenseState := s.license.Devices[d.UDID]
 		devices = append(devices, Device{
 			UDID:           d.UDID,
 			ConnectionType: d.ConnectionType,
@@ -110,6 +131,9 @@ func (s *server) handleDevices(w http.ResponseWriter, r *http.Request) {
 			AppiumURL:      appiumURL,
 			SessionID:      s.sessions[d.UDID],
 			SessionType:    sessionType(s.wdaSessions[d.UDID]),
+			Authorized:     licenseState.Authorized,
+			LicenseCode:    licenseState.Code,
+			LicenseReason:  licenseState.Reason,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"devices": devices})

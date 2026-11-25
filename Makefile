@@ -2,7 +2,12 @@ GO ?= go
 GOLANGCI_LINT ?= golangci-lint
 COVERAGE_MIN ?= 35.0
 
-.PHONY: fmt fmt-check vet lint test race cover cover-check check check-full build
+VERSION ?= 0.1.0
+BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -s -w -X main.appVersion=$(VERSION) -X main.appBuildTime=$(BUILD_TIME)
+APP := 海涛中控v$(VERSION).exe
+
+.PHONY: fmt fmt-check vet lint test race cover cover-check check check-full build release sign
 
 fmt:
 	$(GO) fmt ./...
@@ -42,4 +47,14 @@ check: fmt-check vet test
 check-full: check lint race cover-check
 
 build:
-	$(GO) build -o 海涛中控v0.1.exe .
+	$(GO) build -ldflags "$(LDFLAGS)" -o "$(APP)" .
+
+# 正式发版：先跑完整检查，再产出带版本号的 exe 与压缩包
+release: check
+	$(GO) build -ldflags "$(LDFLAGS)" -o "$(APP)" .
+	@echo "产物：$(APP)（版本 $(VERSION)，构建于 $(BUILD_TIME)）"
+
+# 代码签名（需要先准备证书，未配置时只提示）
+sign:
+	@command -v signtool >/dev/null 2>&1 || { echo "未找到 signtool，请安装 Windows SDK"; exit 1; }
+	signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "$(APP)"

@@ -1,0 +1,30 @@
+# 授权码后台 —— Caddy 反向代理（自动申请并续期 HTTPS 证书）
+#
+# 用法：
+#   1. 把 license.example.com 换成你的域名，并确保域名 A 记录已指向服务器
+#   2. cp Caddyfile /etc/caddy/Caddyfile && systemctl reload caddy
+#
+# 客户端只接受 https://（本机地址除外），所以这一层 TLS 是必须的。
+
+license.example.com {
+	encode zstd gzip
+
+	# 反代到本机回环端口，后台不需要对外监听
+	reverse_proxy 127.0.0.1:8090 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# 管理页建议只允许你自己的出口 IP 访问（按需取消注释）
+	# @admin path /admin/*
+	# handle @admin {
+	# 	@notme not remote_ip 203.0.113.10
+	# 	respond @notme "Forbidden" 403
+	# 	reverse_proxy 127.0.0.1:8090
+	# }
+
+	log {
+		output file /var/log/caddy/license-admin.log
+		format json
+	}
+}

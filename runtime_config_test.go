@@ -44,7 +44,7 @@ func TestLoadRuntimeConfigRejectsInvalidValues(t *testing.T) {
 	if cfg.WDAPort != 8100 {
 		t.Fatalf("invalid WDA port should fall back to 8100, got %d", cfg.WDAPort)
 	}
-	if cfg.BatchConcurrency != 8 {
-		t.Fatalf("invalid concurrency should fall back to 8, got %d", cfg.BatchConcurrency)
+	if cfg.BatchConcurrency != 50 {
+		t.Fatalf("invalid concurrency should fall back to 50, got %d", cfg.BatchConcurrency)
 	}
 }

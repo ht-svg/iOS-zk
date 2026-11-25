@@ -33,6 +33,9 @@ func (r *relaySet) init() {
 	}
 }
 
+// adoptRunningWDA connects to an already-running WebDriverAgent and guarantees
+// a usable session. WDA only reports a session in /status on some builds, so a
+// missing sessionId is not an error: we open a session ourselves instead.
 func (s *server) adoptRunningWDA(ctx context.Context, udid string) (string, string, error) {
 	endpoint, err := s.ensureWDARelay(udid)
 	if err != nil {
@@ -47,11 +50,47 @@ func (s *server) adoptRunningWDA(ctx context.Context, udid string) (string, stri
 	if !ready {
 		return "", "", fmt.Errorf("手机上的 WebDriverAgent 尚未就绪")
 	}
-	sessionID := sessionIDFrom(status)
-	if sessionID == "" {
-		return "", "", fmt.Errorf("WebDriverAgent 已运行，但没有活动的自动化会话")
+
+	// Reuse the session announced by /status only when it still answers, so a
+	// stale id from a previous run does not get cached as if it were alive.
+	if sessionID := sessionIDFrom(status); sessionID != "" && s.wdaSessionAlive(ctx, endpoint, sessionID) {
+		return sessionID, endpoint, nil
+	}
+
+	sessionID, createErr := s.createWDASession(ctx, endpoint)
+	if createErr != nil {
+		return "", "", fmt.Errorf("WebDriverAgent 已就绪，但无法建立自动化会话：%w", createErr)
 	}
 	return sessionID, endpoint, nil
+}
+
+// wdaSessionAlive probes a session with the cheapest session-scoped command.
+func (s *server) wdaSessionAlive(ctx context.Context, endpoint, sessionID string) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, runtimeCfg.ProbeTimeout)
+	defer cancel()
+	_, err := s.appiumRequest(probeCtx, endpoint, http.MethodGet, sessionPath(sessionID)+"/window/size", nil)
+	return err == nil
+}
+
+// createWDASession opens a new automation session directly against WDA. The
+// capability set is deliberately minimal: WDA fills in the defaults, and extra
+// keys are rejected outright by some builds.
+func (s *server) createWDASession(ctx context.Context, endpoint string) (string, error) {
+	body := map[string]any{
+		"capabilities": map[string]any{
+			"alwaysMatch": map[string]any{},
+			"firstMatch":  []any{map[string]any{}},
+		},
+	}
+	result, err := s.appiumRequest(ctx, endpoint, http.MethodPost, "/session", body)
+	if err != nil {
+		return "", err
+	}
+	sessionID := sessionIDFrom(result)
+	if sessionID == "" {
+		return "", fmt.Errorf("WebDriverAgent 未返回 sessionId")
+	}
+	return sessionID, nil
 }
 
 func (s *server) ensureWDARelay(udid string) (string, error) {
@@ -116,7 +155,7 @@ func (s *server) ensureWDAServiceRelay(udid string, port uint16, set *relaySet) 
 	set.deviceIDs[udid] = selected.DeviceID
 	s.mu.Unlock()
 
-	go serveWDARelay(listener, selected.DeviceID, port)
+	go serveWDARelay(listener, udid, selected.DeviceID, port)
 	return endpoint, nil
 }
 
@@ -139,20 +178,21 @@ func (s *server) closeRelayLocked(udid string, set *relaySet) {
 	delete(set.deviceIDs, udid)
 }
 
-func serveWDARelay(listener net.Listener, deviceID uint32, port uint16) {
+func serveWDARelay(listener net.Listener, udid string, deviceID uint32, port uint16) {
 	for {
 		client, err := listener.Accept()
 		if err != nil {
 			return
 		}
-		go relayWDAConnection(client, deviceID, port)
+		go relayWDAConnection(client, udid, deviceID, port)
 	}
 }
 
-func relayWDAConnection(client net.Conn, deviceID uint32, port uint16) {
+func relayWDAConnection(client net.Conn, udid string, deviceID uint32, port uint16) {
 	defer client.Close()
 	device, err := connectUSBMuxService(deviceID, port)
 	if err != nil {
+		logDeviceEvent(context.Background(), "warn", udid, "wda_relay_connect_failed", err)
 		return
 	}
 	defer device.Close()
@@ -174,17 +214,26 @@ func relayWDAConnection(client net.Conn, deviceID uint32, port uint16) {
 	<-done
 }
 
+// usbmuxPortNumber matches libusbmuxd/tidevice, which sends htons(port) in the
+// plist PortNumber field. On little-endian hosts this swaps the two bytes.
+func usbmuxPortNumber(port uint16) uint16 {
+	return binary.BigEndian.Uint16([]byte{byte(port), byte(port >> 8)})
+}
+
+func usbmuxConnectPayload(clientName string, deviceID uint32, port uint16) []byte {
+	return []byte(fmt.Sprintf(
+		`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>ClientVersionString</key><string>libusbmuxd 1.1.0</string><key>MessageType</key><string>Connect</string><key>ProgName</key><string>%s</string><key>DeviceID</key><integer>%d</integer><key>PortNumber</key><integer>%d</integer><key>kLibUSBMuxVersion</key><integer>3</integer></dict></plist>`,
+		clientName, deviceID, usbmuxPortNumber(port),
+	))
+}
+
 func connectUSBMuxService(deviceID uint32, port uint16) (net.Conn, error) {
 	conn, err := net.DialTimeout("tcp", runtimeCfg.USBMuxAddress, runtimeCfg.RelayDialTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("连接 usbmuxd: %w", err)
 	}
 	_ = conn.SetDeadline(time.Now().Add(runtimeCfg.USBMuxRequestTimeout))
-	portNumber := binary.BigEndian.Uint16([]byte{byte(port), byte(port >> 8)})
-	payload := []byte(fmt.Sprintf(
-		`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>ClientVersionString</key><string>libusbmuxd 1.1.0</string><key>MessageType</key><string>Connect</string><key>ProgName</key><string>%s</string><key>DeviceID</key><integer>%d</integer><key>PortNumber</key><integer>%d</integer><key>kLibUSBMuxVersion</key><integer>3</integer></dict></plist>`,
-		runtimeCfg.ClientName, deviceID, portNumber,
-	))
+	payload := usbmuxConnectPayload(runtimeCfg.ClientName, deviceID, port)
 	packet := make([]byte, 16+len(payload))
 	binary.LittleEndian.PutUint32(packet[:4], uint32(len(packet)))
 	binary.LittleEndian.PutUint32(packet[4:8], 1)

@@ -89,6 +89,7 @@ func TestHandleBatchDifferentiatedType(t *testing.T) {
 		wdaSessions: map[string]bool{"device-aaaa1111": false, "device-bbbb2222": false},
 		httpClient:  appium.Client(),
 	}
+	authorizeDevices(s, "device-aaaa1111", "device-bbbb2222")
 
 	body := `{"operation":"type","targets":[` +
 		`{"udid":"device-aaaa1111","body":{"text":"给 A 的内容"}},` +
@@ -137,6 +138,7 @@ func TestHandleBatchDifferentiatedIsolatesBadPayload(t *testing.T) {
 		wdaSessions: map[string]bool{"device-aaaa1111": false, "device-bbbb2222": false},
 		httpClient:  appium.Client(),
 	}
+	authorizeDevices(s, "device-aaaa1111", "device-bbbb2222")
 
 	overlong := strings.Repeat("x", 5000)
 	payload, _ := json.Marshal(map[string]any{

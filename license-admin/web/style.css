@@ -1,0 +1,129 @@
+/* Django admin look-alike, kept close to Django 4.x defaults. */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font: 14px/1.5 "Helvetica Neue", "Microsoft YaHei", Arial, sans-serif;
+  color: #333; background: #fff;
+}
+a { color: #447e9b; text-decoration: none; }
+a:hover { color: #036; text-decoration: underline; }
+code, .mono { font-family: Consolas, "Courier New", monospace; }
+
+/* Header */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 40px; padding: 0 40px;
+  background: #417690; color: #ffc;
+}
+#header a { color: #ffc; }
+#header a:hover { color: #fff; text-decoration: none; }
+#branding h1 { margin: 0; font-size: 18px; font-weight: normal; }
+#branding h1 a { font-weight: bold; }
+#user-tools { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; }
+#user-tools a { border-bottom: 1px solid rgba(255,255,255,.25); }
+#user-tools form { display: inline; margin: 0; }
+#user-tools button {
+  background: none; border: 0; padding: 0; margin-left: 12px;
+  color: #ffc; font: inherit; cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,.25);
+}
+
+/* Breadcrumbs */
+div.breadcrumbs {
+  background: #79aec8; padding: 10px 40px; color: #c4dce8; font-size: 13px;
+}
+div.breadcrumbs a { color: #fff; }
+
+/* Layout */
+.main { padding: 20px 40px 40px; }
+.module {
+  border: 1px solid #ccc; margin-bottom: 20px; background: #fff;
+}
+.module h2, .module caption {
+  margin: 0; padding: 8px 10px;
+  background: #79aec8; color: #fff;
+  font-size: 13px; font-weight: 400; text-align: left;
+}
+.module .body { padding: 12px 10px; }
+
+/* Forms */
+.form-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.form-row label { width: 110px; color: #333; font-size: 13px; }
+input[type=text], input[type=password], textarea {
+  border: 1px solid #ccc; border-radius: 4px; padding: 6px 8px;
+  font: 13px/1.4 Consolas, "Microsoft YaHei", monospace; color: #333;
+}
+input[type=text], input[type=password] { width: 340px; }
+textarea { width: 100%; min-height: 90px; }
+input:focus, textarea:focus { outline: 2px solid #79aec8; outline-offset: -1px; }
+
+.button, input[type=submit] {
+  display: inline-block; padding: 8px 14px; border: 0; border-radius: 4px;
+  background: #417690; color: #fff; font-size: 12px; cursor: pointer;
+  text-decoration: none;
+}
+.button:hover { background: #205067; color: #fff; text-decoration: none; }
+.button.secondary { background: #79aec8; }
+.button.secondary:hover { background: #609ab6; }
+.button.danger { background: #ba2121; }
+.button.danger:hover { background: #a41515; }
+.button.small { padding: 4px 8px; font-size: 11px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+table th, table td { padding: 8px 10px; font-size: 13px; text-align: left; }
+table thead th {
+  background: #f6f6f6; border-bottom: 1px solid #eee;
+  font-weight: 600; color: #666;
+}
+table tbody tr { border-bottom: 1px solid #eee; }
+table tbody tr:hover { background: #ffc; }
+td.code { font-family: Consolas, monospace; font-weight: 600; letter-spacing: .5px; }
+
+/* Result box */
+.result {
+  margin-top: 12px; padding: 12px; border-left: 4px solid #79aec8;
+  background: #f8f8f8; display: none;
+}
+.result.show { display: block; }
+.result .code {
+  font: 700 18px/1.8 Consolas, monospace; letter-spacing: 2px; color: #417690;
+}
+.tag {
+  display: inline-block; padding: 1px 8px; border-radius: 10px;
+  background: #eee; color: #666; font-size: 11px;
+}
+.tag.on { background: #c8e6c9; color: #256029; }
+.tag.expired { background: #ffcdd2; color: #b71c1c; }
+.tag.off { background: #eceff1; color: #607d8b; }
+.result .meta { color: #666; font-size: 12px; margin-top: 4px; }
+.error-box {
+  margin-top: 12px; padding: 10px 12px; border-left: 4px solid #ba2121;
+  background: #fdf3f3; color: #ba2121; display: none;
+}
+.error-box.show { display: block; }
+.hint { color: #777; font-size: 12px; margin: 6px 0 0; }
+.empty { color: #999; padding: 16px 10px; text-align: center; }
+
+/* Login */
+body.login { background: #f8f8f8; }
+body.login #container { width: 360px; margin: 90px auto 0; }
+body.login #header { height: 60px; justify-content: center; border-radius: 4px 4px 0 0; }
+body.login #branding h1 { font-size: 20px; }
+body.login .module { border-top: 0; padding: 16px; }
+body.login .form-row { display: block; margin-bottom: 14px; }
+body.login .form-row label { display: block; width: auto; margin-bottom: 5px; font-weight: 600; }
+body.login input[type=text], body.login input[type=password] { width: 100%; padding: 8px; }
+body.login .submit-row { margin-top: 8px; }
+body.login .submit-row .button { width: 100%; padding: 10px; font-size: 13px; }
+body.login .errlist {
+  background: #fdf3f3; border: 1px solid #ba2121; color: #ba2121;
+  padding: 8px 10px; margin-bottom: 12px; font-size: 13px;
+}
+body.login .footnote { text-align: center; color: #999; font-size: 11px; margin-top: 12px; }
+
+@media (max-width: 720px) {
+  #header, div.breadcrumbs, .main { padding-left: 16px; padding-right: 16px; }
+  input[type=text], input[type=password] { width: 100%; }
+  .form-row label { width: 100%; }
+}

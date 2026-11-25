@@ -169,10 +169,17 @@ func (s *server) probeSession(ctx context.Context, udid, sessionID string) error
 		if !ready {
 			return errSessionLost
 		}
-		if current := sessionIDFrom(result); current != sessionID {
+		// Only a non-empty, different session id proves the cached session is
+		// gone. Most WDA builds omit sessionId from /status entirely, and
+		// treating that as "lost" would rebuild the session on every request.
+		if current := sessionIDFrom(result); current != "" && current != sessionID {
 			return errSessionLost
 		}
-		return nil
+		_, err = s.appiumRequest(ctx, s.sessionURL(udid), http.MethodGet, sessionPath(sessionID)+"/window/size", nil)
+		if err != nil && isSessionInvalid(err) {
+			return errSessionLost
+		}
+		return err
 	}
 	_, err := s.appiumRequest(ctx, s.sessionURL(udid), http.MethodGet, sessionPath(sessionID), nil)
 	return err

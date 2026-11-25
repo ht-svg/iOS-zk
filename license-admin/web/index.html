@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>授权码管理</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="header">
+  <div id="branding"><h1><a href="/admin/">授权码管理</a></h1></div>
+  <div id="user-tools">
+    欢迎，<strong>{{.Username}}</strong>
+    <a href="/admin/export.xlsx">下载表格</a>
+    <a href="/admin/export.csv">导出 CSV</a>
+    <form method="get" action="/admin/logout/"><button type="submit">退出登录</button></form>
+  </div>
+</div>
+
+<div class="breadcrumbs">首页 › 授权码生成</div>
+
+<div class="main">
+
+  <div class="module">
+    <h2>生成授权码</h2>
+    <div class="body">
+      <div class="form-row">
+        <label for="count">生成数量：</label>
+        <input type="text" id="count" value="1" style="width:100px" autocomplete="off">
+        <label for="days" style="width:90px">有效期(天)：</label>
+        <input type="text" id="days" placeholder="留空=永久" style="width:110px" autocomplete="off">
+        <label for="note" style="width:60px">备注：</label>
+        <input type="text" id="note" placeholder="可选，例如 客户名称" autocomplete="off">
+      </div>
+      <button class="button" id="generateBtn">生成</button>
+      <p class="hint">授权码为随机生成，首次被设备使用时自动绑定该设备，之后其他设备无法再使用。有效期按天计算，从生成时刻起算；留空或填 0 表示永久有效。</p>
+
+      <div class="result" id="result">
+        <div id="resultCodes"></div>
+        <div class="meta" id="resultMeta"></div>
+        <div style="margin-top:10px">
+          <a class="button secondary small" id="downloadBatch" style="display:none">下载本批 Excel</a>
+        </div>
+      </div>
+      <div class="error-box" id="errorBox"></div>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2>授权码表格</h2>
+    <div class="body">
+      <p class="hint" style="margin-top:0">
+        已生成 <strong>{{.Total}}</strong> 个授权码，其中 <strong>{{.Bound}}</strong> 个已绑定设备。
+        表格路径：<code>{{.XlsxPath}}</code>
+      </p>
+      <p class="hint">
+        中控启动时会扫描该表格，并与本后台的绑定结果比对：一致则放行，不一致会在中控主屏显示遮罩并禁止所有屏幕操作。
+        请把生成的 <code>授权码.xlsx</code> 放到中控程序所在目录。
+      </p>
+      <p class="hint">
+        按客户发码时，在「备注」里填写客户名称即可区分；表格始终包含全部授权码。
+      </p>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2>解绑授权码</h2>
+    <div class="body">
+      <div class="form-row">
+        <label for="unbindCode">授权码：</label>
+        <input type="text" id="unbindCode" placeholder="输入要解绑的授权码，例如 ABCD-EFGH-JKLM-NPQR" autocomplete="off">
+        <button class="button secondary" id="unbindBtn">解绑</button>
+      </div>
+      <p class="hint">解绑后该码与设备的绑定关系被清除，可以重新绑定到另一台手机。绑定时间与备注会保留。</p>
+      <div class="error-box" id="unbindError"></div>
+      <div class="result" id="unbindResult"><div id="unbindMessage"></div></div>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2>授权码列表（{{len .Records}}）</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:18%">授权码</th>
+          <th>备注</th>
+          <th style="width:24%">绑定设备</th>
+          <th style="width:14%">绑定时间</th>
+          <th style="width:12%">到期时间</th>
+          <th style="width:9%">状态</th>
+          <th style="width:130px"></th>
+        </tr>
+      </thead>
+      <tbody id="recordsBody">
+        {{range .Records}}
+        <tr>
+          <td class="code">{{.Code}}</td>
+          <td>{{.Note}}</td>
+          <td class="mono">{{if .BoundUDID}}{{.BoundUDID}}{{else}}—{{end}}</td>
+          <td>{{if .BoundAt}}{{.BoundAt.Format "2006-01-02 15:04:05"}}{{else}}—{{end}}</td>
+          <td>{{.ExpiresText}}</td>
+          <td><span class="tag {{.StatusClass}}">{{.StatusText}}</span></td>
+          <td>
+            {{if .BoundUDID}}<button class="button secondary small unbind-btn" data-code="{{.Code}}">解绑</button>{{end}}
+            <button class="button danger small delete-btn" data-code="{{.Code}}">删除</button>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="empty">还没有生成过授权码</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const $ = sel => document.querySelector(sel);
+
+function showError(message) {
+  const box = $("#errorBox");
+  box.textContent = message;
+  box.classList.add("show");
+}
+
+function clearError() { $("#errorBox").classList.remove("show"); }
+
+async function postJSON(url, payload) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `请求失败 ${res.status}`);
+  return data;
+}
+
+$("#generateBtn").onclick = async () => {
+  clearError();
+  $("#result").classList.remove("show");
+  const count = parseInt($("#count").value, 10);
+  if (!count || count < 1) { showError("生成数量至少为 1"); return; }
+  const daysRaw = $("#days").value.trim();
+  let days = 0;
+  if (daysRaw !== "") {
+    days = parseInt(daysRaw, 10);
+    if (isNaN(days) || days < 0) { showError("有效期请填写 0 或正整数天数"); return; }
+  }
+  try {
+    const data = await postJSON("/admin/api/generate", {count, note: $("#note").value.trim(), days});
+    const codes = data.codes || [];
+    $("#resultCodes").innerHTML = codes.map(c => `<div class="code">${escapeHTML(c)}</div>`).join("");
+    $("#resultMeta").textContent = `已生成 ${codes.length} 个，总表已更新：${data.table}`;
+    $("#result").classList.add("show");
+
+    // 本批授权码自动打包成 Excel 并下载，方便直接发给客户
+    const link = $("#downloadBatch");
+    link.href = data.download;
+    link.download = data.filename;
+    link.style.display = "inline-block";
+    const trigger = document.createElement("a");
+    trigger.href = data.download;
+    trigger.download = data.filename;
+    document.body.appendChild(trigger);
+    trigger.click();
+    trigger.remove();
+
+    refreshTable();
+  } catch (e) {
+    showError(e.message);
+  }
+};
+
+function escapeHTML(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+async function refreshTable() {
+  try {
+    const res = await fetch("/admin/", {headers: {"X-Requested-With": "fetch"}});
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const fresh = doc.querySelector("#recordsBody");
+    if (fresh) {
+      $("#recordsBody").innerHTML = fresh.innerHTML;
+      bindRowActions();
+    }
+  } catch (_) {}
+}
+
+function bindRowActions() {
+  document.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm(`确定删除授权码 ${btn.dataset.code} 吗？`)) return;
+      try {
+        await postJSON("/admin/api/records/delete", {code: btn.dataset.code});
+        refreshTable();
+      } catch (e) { showError(e.message); }
+    };
+  });
+  document.querySelectorAll(".unbind-btn").forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm(`确定解绑 ${btn.dataset.code} 吗？解绑后该码可绑定到新设备。`)) return;
+      try {
+        await postJSON("/admin/api/unbind", {code: btn.dataset.code});
+        refreshTable();
+      } catch (e) { showError(e.message); }
+    };
+  });
+}
+
+bindRowActions();
+
+$("#unbindBtn").onclick = async () => {
+  const code = $("#unbindCode").value.trim();
+  const errorBox = $("#unbindError");
+  const result = $("#unbindResult");
+  errorBox.classList.remove("show");
+  result.classList.remove("show");
+  if (!code) {
+    errorBox.textContent = "请填写授权码";
+    errorBox.classList.add("show");
+    return;
+  }
+  if (!confirm(`确定解绑 ${code} 吗？解绑后该码可绑定到另一台手机。`)) return;
+  try {
+    await postJSON("/admin/api/unbind", {code});
+    $("#unbindMessage").textContent = `${code} 已解绑，可以绑定到新设备了。`;
+    result.classList.add("show");
+    $("#unbindCode").value = "";
+    refreshTable();
+  } catch (e) {
+    errorBox.textContent = e.message;
+    errorBox.classList.add("show");
+  }
+};
+
+$("#unbindCode").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("#unbindBtn").click();
+});
+</script>
+</body>
+</html>

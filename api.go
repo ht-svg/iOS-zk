@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,18 +41,69 @@ func (s *server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"image": value, "mime": mime})
 }
 
+// streamOptions carries the per-request picture settings exposed by the
+// "画面与帧率" panel. Zero means "use the mode default".
+type streamOptions struct {
+	fps     int
+	quality int
+	scale   int
+}
+
+func parseStreamOptions(r *http.Request) streamOptions {
+	query := r.URL.Query()
+	read := func(name string, min, max int) int {
+		raw := strings.TrimSpace(query.Get(name))
+		if raw == "" {
+			return 0
+		}
+		value, err := strconv.Atoi(raw)
+		if err != nil {
+			return 0
+		}
+		if value < min {
+			return min
+		}
+		if value > max {
+			return max
+		}
+		return value
+	}
+	return streamOptions{
+		fps:     read("fps", 1, 60),
+		quality: read("quality", 1, 100),
+		scale:   read("scale", 25, 100),
+	}
+}
+
+func (o streamOptions) withDefaults(fps, quality, scale int) streamOptions {
+	if o.fps > 0 {
+		fps = o.fps
+	}
+	if o.quality > 0 {
+		quality = o.quality
+	}
+	if o.scale > 0 {
+		scale = o.scale
+	}
+	return streamOptions{fps: fps, quality: quality, scale: scale}
+}
+
 func (s *server) handleStream(w http.ResponseWriter, r *http.Request) {
 	udid, sessionID, ok := s.sessionOrError(w, r)
 	if !ok {
 		return
 	}
+	requested := parseStreamOptions(r)
 	if s.isWDASession(udid) {
+		// WDA exposes these as MJPEG server settings, so the device itself
+		// does the throttling and scaling instead of the proxy.
+		opts := requested.withDefaults(60, 25, 100)
 		if _, err := s.sessionRequest(r.Context(), udid, sessionID, http.MethodPost,
 			sessionPath(sessionID)+"/appium/settings", map[string]any{
 				"settings": map[string]int{
-					"mjpegServerFramerate":         60,
-					"mjpegServerScreenshotQuality": 25,
-					"mjpegScalingFactor":           100,
+					"mjpegServerFramerate":         opts.fps,
+					"mjpegServerScreenshotQuality": opts.quality,
+					"mjpegScalingFactor":           opts.scale,
 				},
 			}); err != nil {
 			if errors.Is(err, errSessionLost) {
@@ -80,7 +132,8 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	ticker := time.NewTicker(time.Second / time.Duration(runtimeCfg.AppiumStreamFPS))
+	opts := requested.withDefaults(runtimeCfg.AppiumStreamFPS, 72, 100)
+	ticker := time.NewTicker(time.Second / time.Duration(opts.fps))
 	defer ticker.Stop()
 
 	for {
@@ -94,7 +147,7 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request) {
 			logDeviceEvent(r.Context(), "warn", udid, "stream_empty_screenshot", nil)
 			return
 		}
-		frame, err := encodeAppiumFrame(encoded)
+		frame, err := encodeAppiumFrame(encoded, opts.quality, opts.scale)
 		if err != nil {
 			logDeviceEvent(r.Context(), "warn", udid, "stream_frame_failed", err)
 			return
@@ -122,7 +175,8 @@ func (s *server) handleStream(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) proxyMJPEGStream(w http.ResponseWriter, r *http.Request, udid, endpoint string) {
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{Timeout: 3 * time.Second}).DialContext,
+		DialContext:           (&net.Dialer{Timeout: runtimeCfg.RelayDialTimeout}).DialContext,
+		ResponseHeaderTimeout: runtimeCfg.HTTPTimeout,
 	}
 	defer transport.CloseIdleConnections()
 	request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, strings.TrimRight(endpoint, "/")+"/", nil)
@@ -130,6 +184,8 @@ func (s *server) proxyMJPEGStream(w http.ResponseWriter, r *http.Request, udid, 
 		writeError(w, http.StatusBadGateway, fmt.Errorf("创建 WDA 视频流请求失败: %w", err))
 		return
 	}
+	request.Header.Set("Accept", "*/*")
+	request.Header.Set("Accept-Encoding", "identity")
 	response, err := (&http.Client{Transport: transport}).Do(request)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, fmt.Errorf("读取 WDA 原生视频流失败: %w", err))
@@ -148,6 +204,7 @@ func (s *server) proxyMJPEGStream(w http.ResponseWriter, r *http.Request, udid, 
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, errors.New("当前 HTTP 服务不支持视频流"))
@@ -186,6 +243,9 @@ func (s *server) handleTap(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !s.requireDeviceLicense(w, udid) {
+		return
+	}
 	if err := s.tapDevice(r.Context(), udid, sessionID, point); err != nil {
 		s.writeAPIError(w, http.StatusBadGateway, err)
 		return
@@ -205,6 +265,9 @@ func (s *server) handleSwipe(w http.ResponseWriter, r *http.Request) {
 	}
 	udid, sessionID, ok := s.sessionOrError(w, r)
 	if !ok {
+		return
+	}
+	if !s.requireDeviceLicense(w, udid) {
 		return
 	}
 	if err := s.swipeDevice(r.Context(), udid, sessionID, gesture); err != nil {
@@ -228,6 +291,9 @@ func (s *server) handleType(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !s.requireDeviceLicense(w, udid) {
+		return
+	}
 	if err := s.typeDevice(r.Context(), udid, sessionID, input); err != nil {
 		s.writeAPIError(w, http.StatusBadGateway, err)
 		return
@@ -247,6 +313,9 @@ func (s *server) handleAction(w http.ResponseWriter, r *http.Request) {
 	}
 	udid, sessionID, ok := s.sessionOrError(w, r)
 	if !ok {
+		return
+	}
+	if !s.requireDeviceLicense(w, udid) {
 		return
 	}
 	if input.Action == "reboot" && s.isWDASession(udid) {
@@ -272,6 +341,9 @@ func (s *server) handleApp(w http.ResponseWriter, r *http.Request) {
 	}
 	udid, sessionID, ok := s.sessionOrError(w, r)
 	if !ok {
+		return
+	}
+	if !s.requireDeviceLicense(w, udid) {
 		return
 	}
 	if err := s.appDevice(r.Context(), udid, sessionID, input); err != nil {
@@ -315,6 +387,9 @@ func (s *server) handleSetClipboard(w http.ResponseWriter, r *http.Request) {
 	}
 	udid, sessionID, ok := s.sessionOrError(w, r)
 	if !ok {
+		return
+	}
+	if !s.requireDeviceLicense(w, udid) {
 		return
 	}
 	if err := s.setClipboardDevice(r.Context(), udid, sessionID, input); err != nil {
@@ -371,6 +446,15 @@ func (s *server) handleBatch(w http.ResponseWriter, r *http.Request) {
 			defer func() { <-sem }()
 
 			result := batchResult{UDID: target.UDID, Name: s.deviceName(target.UDID)}
+
+			// Unlicensed phones must fail individually rather than block the
+			// whole batch.
+			if !s.deviceAuthorized(target.UDID) {
+				result.Error = errDeviceUnlicensed.Error()
+				result.Code = CodeUnauthorized
+				results[index] = result
+				return
+			}
 
 			// Each device parses and validates its own body. A malformed payload
 			// for one device must never abort the others.

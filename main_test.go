@@ -213,6 +213,7 @@ func TestHandleBatchReportsPartialFailures(t *testing.T) {
 		wdaSessions: map[string]bool{"good-device": false, "bad-device": false},
 		httpClient:  appium.Client(),
 	}
+	authorizeDevices(s, "good-device", "bad-device")
 	body := `{"udids":["good-device","bad-device"],"operation":"tap","body":{"x":10,"y":20,"imageWidth":100,"imageHeight":200}}`
 	request := httptest.NewRequest(http.MethodPost, "/api/batch", strings.NewReader(body))
 	response := httptest.NewRecorder()
@@ -251,6 +252,7 @@ func TestHandleBatchRejectsUnknownOperation(t *testing.T) {
 
 func TestHandleBatchReportsMissingSession(t *testing.T) {
 	s := &server{sessions: map[string]string{}}
+	authorizeDevices(s, "good-device")
 	body := `{"udids":["good-device"],"operation":"tap","body":{"x":1,"y":2,"imageWidth":10,"imageHeight":20}}`
 	request := httptest.NewRequest(http.MethodPost, "/api/batch", strings.NewReader(body))
 	response := httptest.NewRecorder()
@@ -439,6 +441,7 @@ func TestHandleTapScalesScreenshotCoordinates(t *testing.T) {
 		sessionURLs: map[string]string{"device-udid": appium.URL},
 		httpClient:  appium.Client(),
 	}
+	authorizeDevices(s, "device-udid")
 	request := httptest.NewRequest(http.MethodPost, "/api/devices/device-udid/tap",
 		strings.NewReader(`{"x":585,"y":1266,"imageWidth":1170,"imageHeight":2532}`))
 	request.SetPathValue("udid", "device-udid")
@@ -482,6 +485,7 @@ func TestHandleSwipeUsesW3CActions(t *testing.T) {
 		wdaSessions: map[string]bool{"device-udid": true},
 		httpClient:  appium.Client(),
 	}
+	authorizeDevices(s, "device-udid")
 	request := httptest.NewRequest(http.MethodPost, "/api/devices/device-udid/swipe",
 		strings.NewReader(`{"x1":585,"y1":1266,"x2":585,"y2":422,"durationMs":500,"imageWidth":1170,"imageHeight":2532}`))
 	request.SetPathValue("udid", "device-udid")

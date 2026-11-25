@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -29,10 +31,17 @@ type server struct {
 	wdaStreamRelay relaySet
 	windowSizes    map[string]windowSizeEntry
 	deviceIDs      map[string]uint32
+	license        licenseStatus
+	deviceLister   func() []string
 	httpClient     *http.Client
 }
 
 func main() {
+	if len(os.Args) >= 2 && (os.Args[1] == "-version" || os.Args[1] == "--version") {
+		fmt.Printf("海涛中控 %s\n", versionString())
+		return
+	}
+
 	configPath, err := defaultConfigPath()
 	if err != nil {
 		log.Fatalf("启动失败：%s", chineseError(err))
@@ -65,6 +74,7 @@ func main() {
 	mux.HandleFunc("GET /api/devices", s.handleDevices)
 	mux.HandleFunc("POST /api/batch", s.handleBatch)
 	mux.HandleFunc("POST /api/devices/{udid}/settings", s.handleSettings)
+	mux.HandleFunc("GET /api/license", s.handleLicenseStatus)
 	mux.HandleFunc("POST /api/devices/{udid}/session", s.handleCreateSession)
 	mux.HandleFunc("DELETE /api/devices/{udid}/session", s.handleDeleteSession)
 	mux.HandleFunc("GET /api/devices/{udid}/screenshot", s.handleScreenshot)
@@ -83,8 +93,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("无法启动本地服务：%s", chineseError(err))
 	}
-	log.Printf("海涛中控 v0.1 已启动：http://%s", address)
+	log.Printf("海涛中控 %s 已启动：http://%s", versionString(), address)
 	log.Printf("配置文件位置：%s", configPath)
+	s.startLicenseWatcher(context.Background())
+	status := s.currentLicense()
+	log.Printf("授权状态：offline=%t devices=%d reason=%q table=%s backup=%s",
+		status.Offline, status.DeviceCount, status.Reason, status.TablePath, status.BackupPath)
 	openBrowser("http://" + address)
 	if err := http.Serve(listener, s.withRequestLogging(s.localOnly(mux))); err != nil {
 		log.Fatalf("本地服务异常退出：%s", chineseError(err))
@@ -126,6 +140,9 @@ func (s *server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// The page is embedded in the binary, so its URL never changes. Without
+	// no-store the browser keeps serving the previous build after an upgrade.
+	w.Header().Set("Cache-Control", "no-store, must-revalidate")
 	_, _ = w.Write(data)
 }
 

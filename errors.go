@@ -16,6 +16,7 @@ const (
 	CodeDevice          = "device_error"
 	CodeInternal        = "internal_error"
 	CodeService         = "service_unavailable"
+	CodeUnauthorized    = "unauthorized"
 )
 
 // appError carries a stable code and HTTP status through the call stack.
@@ -40,8 +41,9 @@ func newAppError(code, message string, status int, cause error) *appError {
 }
 
 var (
-	errSessionRequired = newAppError(CodeSessionRequired, "请先为此设备启动 Appium/WDA 会话", http.StatusConflict, nil)
-	errSessionLost     = newAppError(CodeSessionLost, "设备会话已失效，正在重新连接", http.StatusConflict, nil)
+	errSessionRequired  = newAppError(CodeSessionRequired, "请先为此设备启动 Appium/WDA 会话", http.StatusConflict, nil)
+	errSessionLost      = newAppError(CodeSessionLost, "设备会话已失效，正在重新连接", http.StatusConflict, nil)
+	errDeviceUnlicensed = newAppError(CodeUnauthorized, "该设备未授权，请在中控界面查看授权状态", http.StatusForbidden, nil)
 )
 
 func appErrorFrom(err error) *appError {
@@ -71,6 +73,8 @@ func codeForStatus(status int) string {
 		return CodeBadRequest
 	case http.StatusConflict:
 		return CodeSessionRequired
+	case http.StatusForbidden:
+		return CodeUnauthorized
 	case http.StatusNotImplemented:
 		return CodeUnsupported
 	case http.StatusServiceUnavailable:

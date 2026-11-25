@@ -3,3 +3,13 @@
 *.test
 dist/*.zip
 coverage.out
+
+# 授权相关：包含真实授权码、绑定关系，禁止入库
+授权码.xlsx
+授权备份.json
+records.json
+license-admin/signing.key
+license-admin/*.key
+
+# 部署产物
+deploy/*.tgz

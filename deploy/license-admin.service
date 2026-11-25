@@ -1,0 +1,30 @@
+[Unit]
+Description=License Admin (授权码后台)
+Documentation=https://github.com/your-org/ios-phone-manager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=license
+Group=license
+WorkingDirectory=/opt/license-admin
+EnvironmentFile=-/etc/license-admin/env
+ExecStart=/opt/license-admin/license-admin \
+    -addr 127.0.0.1:8090 \
+    -data /opt/license-admin/data/records.json \
+    -xlsx /opt/license-admin/data/授权码.xlsx \
+    -key /opt/license-admin/data/signing.key
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+# 收紧权限：只允许写数据目录
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/license-admin/data
+
+[Install]
+WantedBy=multi-user.target
