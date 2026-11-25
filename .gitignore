@@ -1,8 +1,19 @@
 *.exe
 *.exe~
 *.test
+*.dll
+*.so
+*.dylib
 dist/*.zip
-coverage.out
+*.out
+coverage.html
+coverage.txt
+coverage.xml
+*.coverprofile
+profile.cov
+go.work
+go.work.sum
+.env
 
 # 授权相关：包含真实授权码、绑定关系，禁止入库
 授权码.xlsx
